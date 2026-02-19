@@ -1,0 +1,17 @@
+{
+  "name": "foam-pricing-app",
+  "private": true,
+  "workspaces": ["server", "client"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w client && npm run build -w server",
+    "start": "node scripts/start.mjs",
+    "prisma:generate": "node scripts/prisma-generate.mjs",
+    "prisma:migrate": "npx prisma migrate deploy --schema=server/prisma/schema.prisma",
+    "prisma:seed": "npx tsx server/prisma/seed.ts",
+    "postinstall": "npm run prisma:generate"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

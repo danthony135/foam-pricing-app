@@ -10,6 +10,7 @@ import Quotes from './pages/Quotes';
 import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import AiChat from './pages/AiChat';
+import ImportQuotes from './pages/ImportQuotes';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/ai" element={<AiChat />} />
+          <Route path="/import-quotes" element={<ImportQuotes />} />
         </Route>
       </Routes>
     </BrowserRouter>

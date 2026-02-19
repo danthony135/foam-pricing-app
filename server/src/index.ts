@@ -13,6 +13,7 @@ import inventoryRoutes from './routes/inventory';
 import rulesRoutes from './routes/rules';
 import aiRoutes from './routes/ai';
 import importRoutes from './routes/import';
+import quoteImportRoutes from './routes/quoteImport';
 
 export const prisma = new PrismaClient();
 
@@ -37,6 +38,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/rules', rulesRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/import', importRoutes);
+app.use('/api/quote-import', quoteImportRoutes);
 
 // Serve client build in production
 if (process.env.NODE_ENV === 'production') {

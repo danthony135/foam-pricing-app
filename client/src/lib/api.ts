@@ -86,4 +86,18 @@ export const api = {
     request<any>('/import/foams/preview', { method: 'POST', body: JSON.stringify({ data, mapping }) }),
   executeFoamImport: (data: string, mapping?: any) =>
     request<any>('/import/foams', { method: 'POST', body: JSON.stringify({ data, mapping }) }),
+
+  // Quote Import
+  quoteImportParseExcel: (data: string, mapping?: any) =>
+    request<any>('/quote-import/parse/excel', { method: 'POST', body: JSON.stringify({ data, mapping }) }),
+  quoteImportParseEmail: (text: string) =>
+    request<any>('/quote-import/parse/email', { method: 'POST', body: JSON.stringify({ text }) }),
+  quoteImportParsePdf: (data: string) =>
+    request<any>('/quote-import/parse/pdf', { method: 'POST', body: JSON.stringify({ data }) }),
+  quoteImportResolve: (items: any[]) =>
+    request<any>('/quote-import/resolve', { method: 'POST', body: JSON.stringify({ items }) }),
+  quoteImportPrice: (items: any[]) =>
+    request<any>('/quote-import/price', { method: 'POST', body: JSON.stringify({ items }) }),
+  quoteImportSave: (items: any[]) =>
+    request<any>('/quote-import/save', { method: 'POST', body: JSON.stringify({ items }) }),
 };

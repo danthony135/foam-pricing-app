@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Box, Layers, Users, Calculator,
-  FileText, Package, Settings, MessageSquare,
+  FileText, Package, Settings, MessageSquare, Import,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/customers', icon: Users, label: 'Customers' },
   { to: '/calculator', icon: Calculator, label: 'Pricing Calculator' },
   { to: '/quotes', icon: FileText, label: 'Quotes' },
+  { to: '/import-quotes', icon: Import, label: 'Import Quotes' },
   { to: '/inventory', icon: Package, label: 'Inventory' },
   { to: '/settings', icon: Settings, label: 'Settings' },
   { to: '/ai', icon: MessageSquare, label: 'AI Chat' },

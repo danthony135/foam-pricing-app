@@ -7,6 +7,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 COPY server/package.json server/
 COPY client/package.json client/
+COPY scripts scripts
+COPY server/prisma server/prisma
 
 RUN npm ci
 
@@ -22,6 +24,8 @@ WORKDIR /app
 
 COPY package.json package-lock.json ./
 COPY server/package.json server/
+COPY scripts scripts
+COPY server/prisma server/prisma
 
 RUN npm ci --omit=dev
 
@@ -29,8 +33,6 @@ COPY --from=build /app/server/dist server/dist
 COPY --from=build /app/client/dist client/dist
 COPY --from=build /app/node_modules/.prisma node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma node_modules/@prisma
-COPY server/prisma server/prisma
-COPY scripts scripts
 
 EXPOSE 3001
 

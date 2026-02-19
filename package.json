@@ -11,6 +11,9 @@
     "prisma:seed": "npx tsx server/prisma/seed.ts",
     "postinstall": "npm run prisma:generate"
   },
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }

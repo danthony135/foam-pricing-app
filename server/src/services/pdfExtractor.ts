@@ -1,4 +1,3 @@
-import { PDFParse } from 'pdf-parse';
 import { parseTextWithAi, parseImageWithAi } from './quoteAiParser';
 import type { RawQuoteLineItem } from './quoteImportTypes';
 
@@ -19,9 +18,9 @@ export async function extractFromPdf(buffer: Buffer): Promise<RawQuoteLineItem[]
 
 async function extractTextFromPdf(buffer: Buffer): Promise<string> {
   try {
-    const parser = new PDFParse({ data: new Uint8Array(buffer) });
-    const result = await parser.getText();
-    return result.text || '';
+    const pdfParse = require('pdf-parse');
+    const data = await pdfParse(buffer);
+    return data.text || '';
   } catch {
     return '';
   }

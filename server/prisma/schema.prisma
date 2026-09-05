@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = "file:./dev.db"
+  // Local: file:./dev.db (see server/prisma/.env). Railway: file:/data/foam.db on a volume.
+  url      = env("DATABASE_URL")
 }
 
 model Foam {

@@ -36,4 +36,4 @@ COPY --from=build /app/node_modules/@prisma node_modules/@prisma
 
 EXPOSE 3001
 
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=server/prisma/schema.prisma && node scripts/start.mjs"]
+CMD ["node", "scripts/start.mjs"]

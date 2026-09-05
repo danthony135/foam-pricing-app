@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { api } from "@/lib/api";
+import { OdooSettings } from "@/components/settings/OdooSettings";
 import type { LaborSettings, OverheadSettings } from "@/types";
 
 export default function Settings() {
@@ -323,6 +324,7 @@ export default function Settings() {
           </div>
         </Card>
       </div>
+        <OdooSettings />
     </div>
   );
 }

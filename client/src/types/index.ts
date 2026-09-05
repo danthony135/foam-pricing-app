@@ -6,6 +6,12 @@ export interface Foam {
   costPerBoardFoot: number;
   supplier: string | null;
   description: string | null;
+  odooTemplateId?: number | null;
+  odooProductId?: number | null;
+  thicknessIn?: number | null;
+  sheetLengthIn?: number;
+  sheetWidthIn?: number;
+  active?: boolean;
   createdAt: string;
   updatedAt: string;
 }

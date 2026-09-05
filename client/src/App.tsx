@@ -11,6 +11,11 @@ import Inventory from './pages/Inventory';
 import Settings from './pages/Settings';
 import AiChat from './pages/AiChat';
 import ImportQuotes from './pages/ImportQuotes';
+import Skus from './pages/Skus';
+import SkuDetail from './pages/SkuDetail';
+import FoamOrders from './pages/FoamOrders';
+import FoamOrderDetail from './pages/FoamOrderDetail';
+import CutStation from './pages/CutStation';
 
 export default function App() {
   return (
@@ -28,7 +33,12 @@ export default function App() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/ai" element={<AiChat />} />
           <Route path="/import-quotes" element={<ImportQuotes />} />
+          <Route path="/skus" element={<Skus />} />
+          <Route path="/skus/:id" element={<SkuDetail />} />
+          <Route path="/foam-orders" element={<FoamOrders />} />
+          <Route path="/foam-orders/:id" element={<FoamOrderDetail />} />
         </Route>
+        <Route path="/cut-station" element={<CutStation />} />
       </Routes>
     </BrowserRouter>
   );

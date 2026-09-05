@@ -16,11 +16,19 @@ model Foam {
   costPerBoardFoot Float
   supplier         String?
   description      String?
+  // Odoo link: product.template / product.product of the raw foam (UoM = BF)
+  odooTemplateId   Int?                   @unique
+  odooProductId    Int?
+  thicknessIn      Float?                 // slab thickness parsed from the Odoo name (5" Foam → 5)
+  sheetLengthIn    Float                  @default(82) // stock slab size the cut optimizer packs onto
+  sheetWidthIn     Float                  @default(36)
+  active           Boolean                @default(true)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
   customerPricing  CustomerFoamPricing[]
   inventory        FoamInventory?
   quotes           CushionQuote[]
+  pieces           FoamPiece[]
 }
 
 model Dacron {
@@ -31,10 +39,83 @@ model Dacron {
   costPerSqFt     Float
   supplier        String?
   description     String?
+  odooTemplateId  Int?             @unique
+  odooProductId   Int?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   inventory       DacronInventory?
   quotes          CushionQuote[]
+  pieces          FoamPiece[]
+}
+
+// ============================================================
+// Odoo-synced manufactured SKUs and their foam patterns (the foam BOM)
+// ============================================================
+
+model Sku {
+  id             Int         @id @default(autoincrement())
+  odooTemplateId Int         @unique
+  code           String      // model code, e.g. 400-30 or L400-30
+  name           String      // full Odoo name
+  shortName      String      @default("")
+  collection     String      @default("")
+  active         Boolean     @default(true)
+  odooBomId      Int?
+  odooFoamLines  Json?       // [{lineId, productId, templateId, name, qty, uom}] as last synced
+  wastePct       Float?      // override of the global waste allowance
+  notes          String?
+  lastSyncedAt   DateTime?
+  pushedAt       DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  pieces         FoamPiece[]
+
+  @@index([code])
+  @@index([collection])
+}
+
+model FoamPiece {
+  id         Int      @id @default(autoincrement())
+  skuId      Int
+  sku        Sku      @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  name       String   // Seat core, Back core, Arm pad, Deck pad…
+  foamId     Int?
+  foam       Foam?    @relation(fields: [foamId], references: [id])
+  lengthIn   Float
+  widthIn    Float
+  heightIn   Float    // thickness
+  qty        Int      @default(1)
+  dacronId   Int?
+  dacron     Dacron?  @relation(fields: [dacronId], references: [id])
+  wrapDacron Boolean  @default(false)
+  notes      String?
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([skuId])
+}
+
+// A production run's foam requirement: from Odoo MOs or typed SKU × qty.
+model FoamOrder {
+  id           Int      @id @default(autoincrement())
+  name         String
+  status       String   @default("draft") // draft | optimized | ordered | cut | done
+  source       String   @default("manual") // manual | mo
+  lines        Json     // [{skuId, code, name, qty, moName?, moId?}]
+  requirements Json?    // per foam: pieces, boardFeet, withWaste, onHand, shortfall
+  cutPlan      Json?    // per foam: sheets[] with placed rectangles
+  odooPoId     Int?
+  odooPoName   String?
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model AppSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
 }
 
 model Customer {

@@ -14,6 +14,10 @@ import rulesRoutes from './routes/rules';
 import aiRoutes from './routes/ai';
 import importRoutes from './routes/import';
 import quoteImportRoutes from './routes/quoteImport';
+import skuRoutes from './routes/skus';
+import odooRoutes from './routes/odoo';
+import foamOrderRoutes from './routes/foamOrders';
+import { startOdooSyncLoop } from './services/odooSync';
 
 export const prisma = new PrismaClient();
 
@@ -39,6 +43,9 @@ app.use('/api/rules', rulesRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/import', importRoutes);
 app.use('/api/quote-import', quoteImportRoutes);
+app.use('/api/skus', skuRoutes);
+app.use('/api/odoo', odooRoutes);
+app.use('/api/foam-orders', foamOrderRoutes);
 
 // Serve client build in production
 if (process.env.NODE_ENV === 'production') {
@@ -50,6 +57,8 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.use(errorHandler);
+
+startOdooSyncLoop();
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

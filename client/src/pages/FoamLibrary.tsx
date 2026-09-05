@@ -28,6 +28,9 @@ interface FoamFormState {
   costPerBoardFoot: string;
   supplier: string;
   description: string;
+  thicknessIn: string;
+  sheetLengthIn: string;
+  sheetWidthIn: string;
 }
 
 interface ImportPreviewRow {
@@ -46,6 +49,9 @@ const emptyForm: FoamFormState = {
   costPerBoardFoot: "",
   supplier: "",
   description: "",
+  thicknessIn: "",
+  sheetLengthIn: "82",
+  sheetWidthIn: "36",
 };
 
 export default function FoamLibrary() {
@@ -109,6 +115,9 @@ export default function FoamLibrary() {
       costPerBoardFoot: String(foam.costPerBoardFoot),
       supplier: foam.supplier ?? "",
       description: foam.description ?? "",
+      thicknessIn: foam.thicknessIn != null ? String(foam.thicknessIn) : "",
+      sheetLengthIn: String(foam.sheetLengthIn ?? 82),
+      sheetWidthIn: String(foam.sheetWidthIn ?? 36),
     });
     setFormDialogOpen(true);
   }
@@ -124,6 +133,9 @@ export default function FoamLibrary() {
       costPerBoardFoot: parseFloat(form.costPerBoardFoot),
       supplier: form.supplier,
       description: form.description,
+      thicknessIn: form.thicknessIn ? parseFloat(form.thicknessIn) : null,
+      sheetLengthIn: parseFloat(form.sheetLengthIn) || 82,
+      sheetWidthIn: parseFloat(form.sheetWidthIn) || 36,
     };
 
     try {
@@ -463,8 +475,22 @@ export default function FoamLibrary() {
                     value={form.supplier}
                     onChange={handleFormChange}
                     placeholder="e.g. FoamCo Inc."
-                    required
                   />
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="thicknessIn">Slab thickness (in)</Label>
+                    <Input id="thicknessIn" name="thicknessIn" type="number" step="0.25" value={form.thicknessIn} onChange={handleFormChange} placeholder="5" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sheetLengthIn">Slab length (in)</Label>
+                    <Input id="sheetLengthIn" name="sheetLengthIn" type="number" step="1" value={form.sheetLengthIn} onChange={handleFormChange} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sheetWidthIn">Slab width (in)</Label>
+                    <Input id="sheetWidthIn" name="sheetWidthIn" type="number" step="1" value={form.sheetWidthIn} onChange={handleFormChange} />
+                  </div>
                 </div>
 
                 <div className="space-y-2">

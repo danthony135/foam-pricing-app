@@ -1,12 +1,15 @@
 import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, Box, Layers, Users, Calculator,
-  FileText, Package, Settings, MessageSquare, Import,
+  FileText, Package, Settings, MessageSquare, Import, Tags, Scissors, Monitor,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/skus', icon: Tags, label: 'SKUs & Patterns' },
+  { to: '/foam-orders', icon: Scissors, label: 'Foam Orders / Nests' },
+  { to: '/cut-station', icon: Monitor, label: 'Cut Station' },
   { to: '/foams', icon: Box, label: 'Foam Library' },
   { to: '/dacrons', icon: Layers, label: 'Dacron Library' },
   { to: '/customers', icon: Users, label: 'Customers' },

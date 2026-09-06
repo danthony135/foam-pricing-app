@@ -87,10 +87,10 @@ export function NestSheet({
                 <rect x={p.x} y={p.y} width={p.w} height={p.h} fill={fill} fillOpacity={0.45} stroke={fill} strokeWidth={0.4} />
               )}
               <g transform={textTransform}>
-                {mo && <text x={cx} y={cy - fontSize * 1.05} textAnchor="middle" fontSize={fontSize * 0.95} fontWeight={800} fill="#000">{mo}</text>}
-                <text x={cx} y={cy + (mo ? fontSize * 0.05 : -fontSize * 0.2)} textAnchor="middle" fontSize={fontSize} fontWeight={700} fill="#111">{code}</text>
-                <text x={cx} y={cy + (mo ? fontSize * 0.95 : fontSize * 0.7)} textAnchor="middle" fontSize={fontSize * 0.65} fill="#222">{rest.join(' ')}</text>
-                <text x={cx} y={cy + (mo ? fontSize * 1.7 : fontSize * 1.45)} textAnchor="middle" fontSize={fontSize * 0.5} fill="#444">{p.w}×{p.h}{p.rot ? ` ↻${p.rot}°` : p.rotated ? ' ↻' : ''}</text>
+                <text x={cx} y={cy - fontSize * 0.55} textAnchor="middle" fontSize={fontSize} fontWeight={800} fill="#111">{code}</text>
+                {mo && <text x={cx} y={cy + fontSize * 0.45} textAnchor="middle" fontSize={fontSize * 0.9} fontWeight={800} fill="#000">{mo}</text>}
+                <text x={cx} y={cy + fontSize * (mo ? 1.2 : 0.35)} textAnchor="middle" fontSize={fontSize * 0.62} fill="#222">{rest.join(' ')}</text>
+                <text x={cx} y={cy + fontSize * (mo ? 1.85 : 1.0)} textAnchor="middle" fontSize={fontSize * 0.5} fill="#444">{p.w}×{p.h}{p.rot ? ` ↻${p.rot}°` : p.rotated ? ' ↻' : ''}</text>
               </g>
             </g>
           );

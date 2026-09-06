@@ -5,7 +5,8 @@
  * four rotations tried, exact overlap test on rasterized masks so a piece can
  * tuck into another piece's notch. Not optimal, but honest and fast enough for
  * a shop cut list (tens of pieces per slab), and every layout it returns is
- * physically valid.
+ * physically valid. The MO on a piece is a label only — packing is decided by
+ * size alone, so the fewest slabs win regardless of which orders share a slab.
  */
 import { area, bbox, isValid, normalize, rasterize, rectPoly, rotate, round, translate, type Poly } from './geometry';
 

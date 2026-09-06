@@ -15,6 +15,7 @@ export interface CutPiece {
   w: number;
   qty: number;
   poly?: Poly; // shaped outline (inches, y-down); omitted = rectangle l × w
+  mo?: string; // production order this piece belongs to (schedule / MO orders)
 }
 export interface PlacedPiece {
   label: string;
@@ -25,6 +26,7 @@ export interface PlacedPiece {
   rotated: boolean; // any rotation ≠ 0
   rot: number; // degrees
   poly?: Poly; // placed outline in sheet coordinates (only for shaped pieces)
+  mo?: string;
 }
 export interface Sheet {
   index: number;
@@ -46,6 +48,7 @@ const PAD = 1; // cells of dilation (¼" kerf / template slop)
 
 interface Item {
   label: string;
+  mo?: string;
   poly: Poly; // normalized, rotation 0
   area: number;
   shaped: boolean;
@@ -120,7 +123,7 @@ export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: 
   for (const p of pieces) {
     const shaped = isValid(p.poly);
     const poly = shaped ? normalize(p.poly as Poly) : rectPoly(p.l, p.w);
-    const it: Item = { label: p.label, poly, area: area(poly), shaped };
+    const it: Item = { label: p.label, mo: p.mo, poly, area: area(poly), shaped };
     for (let i = 0; i < Math.max(1, Math.round(p.qty)); i++) items.push(it);
   }
   items.sort((a, b) => b.area - a.area || Math.max(bbox(b.poly).w, bbox(b.poly).h) - Math.max(bbox(a.poly).w, bbox(a.poly).h));
@@ -167,6 +170,7 @@ export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: 
       rotated: best.v.rot !== 0,
       rot: best.v.rot,
       ...(it.shaped ? { poly: translate(best.v.poly, x, y) } : {}),
+      ...(it.mo ? { mo: it.mo } : {}),
     });
     sheet.usedArea += it.area;
     return true;

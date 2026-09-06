@@ -20,7 +20,7 @@ export interface Requirement {
   grade: string;
   thicknessIn: number | null;
   odooProductId: number | null;
-  pieces: { label: string; l: number; w: number; h: number; qty: number; skuCode: string; poly?: [number, number][] }[];
+  pieces: { label: string; l: number; w: number; h: number; qty: number; skuCode: string; poly?: [number, number][]; mo?: string }[];
   pieceCount: number;
   netBoardFeet: number;
   boardFeet: number;
@@ -66,7 +66,8 @@ export async function buildRequirements(lines: OrderLine[]): Promise<Requirement
       const qty = p.qty * line.qty;
       const poly = p.shapeType === 'polygon' && Array.isArray(p.shape) ? (p.shape as [number, number][]) : undefined;
       const sqIn = poly && p.areaSqIn ? p.areaSqIn : p.lengthIn * p.widthIn;
-      r.pieces.push({ label: `${sku.code} ${p.name}`, l: p.lengthIn, w: p.widthIn, h: p.heightIn, qty, skuCode: sku.code, ...(poly ? { poly } : {}) });
+      // One entry per production order so the slab picture can carry the MO number.
+      r.pieces.push({ label: `${sku.code} ${p.name}`, l: p.lengthIn, w: p.widthIn, h: p.heightIn, qty, skuCode: sku.code, ...(poly ? { poly } : {}), ...(line.moName ? { mo: line.moName } : {}) });
       r.pieceCount += qty;
       r.netBoardFeet += (sqIn * p.heightIn / 144) * qty;
       byFoam.set(f.id, r);
@@ -88,7 +89,7 @@ export function buildCutPlan(reqs: Requirement[]): Record<number, CutPlan> {
   const plan: Record<number, CutPlan> = {};
   for (const r of reqs) {
     plan[r.foamId] = packPieces(
-      r.pieces.map((p) => ({ label: p.label, l: p.l, w: p.w, qty: p.qty, poly: p.poly })),
+      r.pieces.map((p) => ({ label: p.label, l: p.l, w: p.w, qty: p.qty, poly: p.poly, mo: p.mo })),
       r.sheetLengthIn,
       r.sheetWidthIn
     );

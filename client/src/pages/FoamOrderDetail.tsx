@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { NestSheet } from '@/components/foam/NestSheet';
+import { NestSheet, makeColorMap, type PlacedPiece } from '@/components/foam/NestSheet';
 import { RefreshCw, ShoppingCart, Monitor, Printer } from 'lucide-react';
 
 export default function FoamOrderDetail() {
@@ -16,7 +16,9 @@ export default function FoamOrderDetail() {
   const load = () => api.getFoamOrder(orderId).then(setO).catch((e) => setMsg(String(e)));
   useEffect(() => { load(); }, [orderId]);
 
-  const keys = useMemo(() => (o ? [...new Set((o.lines as any[]).map((l) => l.code))] : []), [o]);
+  // Colour per production order (falls back to SKU code for typed orders).
+  const colors = useMemo(() => makeColorMap(o ? (o.lines as any[]).map((l) => l.moName ?? l.code) : []), [o]);
+  const colorOf = (p: PlacedPiece) => colors.get(p.mo ?? p.label.split(' ')[0]) ?? '#f97316';
   if (!o) return <div className="p-6 text-muted-foreground">{msg || 'Loading…'}</div>;
 
   const reqs: any[] = o.requirements ?? [];
@@ -43,7 +45,7 @@ export default function FoamOrderDetail() {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={optimize} disabled={busy}><RefreshCw className="mr-2 h-4 w-4" />Re-nest</Button>
-          <Link to={`/cut-station?order=${o.id}`}><Button variant="outline"><Monitor className="mr-2 h-4 w-4" />Cut station</Button></Link>
+          <Link to={`/cut-station/${o.id}`}><Button variant="outline"><Monitor className="mr-2 h-4 w-4" />Cut station</Button></Link>
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
           <Button onClick={() => rfq(false)} disabled={busy || !shortfall.length}><ShoppingCart className="mr-2 h-4 w-4" />RFQ shortfall in Odoo</Button>
           <Button variant="outline" onClick={() => rfq(true)} disabled={busy}>RFQ full qty</Button>
@@ -93,7 +95,7 @@ export default function FoamOrderDetail() {
             {(plan[r.foamId]?.sheets ?? []).map((s: any) => (
               <div key={s.index}>
                 <div className="mb-1 text-sm font-semibold">Slab {s.index} of {plan[r.foamId].sheets.length}</div>
-                <NestSheet sheet={s} length={plan[r.foamId].sheetLength} width={plan[r.foamId].sheetWidth} keys={keys} />
+                <NestSheet sheet={s} length={plan[r.foamId].sheetLength} width={plan[r.foamId].sheetWidth} colorOf={colorOf} />
               </div>
             ))}
           </CardContent>

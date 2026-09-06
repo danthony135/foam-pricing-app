@@ -3,7 +3,6 @@
  * board feet with waste, on-hand, shortfall) and a cut plan per foam.
  */
 import { prisma } from '../index';
-import { calculateBoardFeet } from '../utils/boardFeet';
 import { packPieces, type CutPlan } from './cutOptimizer';
 import { getSetting, DEFAULT_WASTE_PCT, round2 } from './odooSync';
 
@@ -21,7 +20,7 @@ export interface Requirement {
   grade: string;
   thicknessIn: number | null;
   odooProductId: number | null;
-  pieces: { label: string; l: number; w: number; h: number; qty: number; skuCode: string }[];
+  pieces: { label: string; l: number; w: number; h: number; qty: number; skuCode: string; poly?: [number, number][] }[];
   pieceCount: number;
   netBoardFeet: number;
   boardFeet: number;
@@ -65,9 +64,11 @@ export async function buildRequirements(lines: OrderLine[]): Promise<Requirement
         missingPatterns: [],
       };
       const qty = p.qty * line.qty;
-      r.pieces.push({ label: `${sku.code} ${p.name}`, l: p.lengthIn, w: p.widthIn, h: p.heightIn, qty, skuCode: sku.code });
+      const poly = p.shapeType === 'polygon' && Array.isArray(p.shape) ? (p.shape as [number, number][]) : undefined;
+      const sqIn = poly && p.areaSqIn ? p.areaSqIn : p.lengthIn * p.widthIn;
+      r.pieces.push({ label: `${sku.code} ${p.name}`, l: p.lengthIn, w: p.widthIn, h: p.heightIn, qty, skuCode: sku.code, ...(poly ? { poly } : {}) });
       r.pieceCount += qty;
-      r.netBoardFeet += calculateBoardFeet(p.lengthIn, p.widthIn, p.heightIn) * qty;
+      r.netBoardFeet += (sqIn * p.heightIn / 144) * qty;
       byFoam.set(f.id, r);
     }
   }
@@ -87,7 +88,7 @@ export function buildCutPlan(reqs: Requirement[]): Record<number, CutPlan> {
   const plan: Record<number, CutPlan> = {};
   for (const r of reqs) {
     plan[r.foamId] = packPieces(
-      r.pieces.map((p) => ({ label: p.label, l: p.l, w: p.w, qty: p.qty })),
+      r.pieces.map((p) => ({ label: p.label, l: p.l, w: p.w, qty: p.qty, poly: p.poly })),
       r.sheetLengthIn,
       r.sheetWidthIn
     );

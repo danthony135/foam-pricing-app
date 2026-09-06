@@ -32,6 +32,7 @@ export const api = {
   copyPieces: (skuId: number, sourceId: number, replace: boolean) => request<any>(`/skus/${skuId}/copy-from/${sourceId}`, { method: 'POST', body: JSON.stringify({ replace }) }),
   importPieces: (rows: any[]) => request<any>('/skus/import-pieces', { method: 'POST', body: JSON.stringify({ rows }) }),
   pushSkuBom: (id: number) => request<any>(`/skus/${id}/push`, { method: 'POST' }),
+  parseDxf: (base64: string) => request<any>('/skus/parse-dxf', { method: 'POST', body: JSON.stringify({ data: base64 }) }),
 
   // Foam orders (cut lists + nests)
   getFoamOrders: () => request<any[]>('/foam-orders'),

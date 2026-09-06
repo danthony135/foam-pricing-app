@@ -6,7 +6,15 @@ customers, pricing rules and AI pricing chat were removed on 2026-09-06.
 What it does:
 - Syncs manufactured SKUs and slab foam products (board feet) from Odoo.
 - Holds the foam pattern per SKU (pieces L × W × thickness × qty, per slab foam)
-  and pushes the board-feet lines onto the SKU's Odoo BOM.
+  and pushes the board-feet lines onto the SKU's Odoo BOM. A piece can be a
+  rectangle or a shaped outline (polygon in inches, y-down, normalized to 0,0):
+  presets (T-cushion, wedge, notch, trapezoid, rounded end, L), DXF import
+  (`services/dxf.ts`), or a photo trace of the cardboard template (client,
+  `lib/shapes.ts`). Board feet use the true outline area.
+- Nesting (`services/cutOptimizer.ts`): bottom-left on a ¼" occupancy grid,
+  corner + 2" lattice candidates, 4 rotations for shapes, exact rasterized
+  overlap test with a ¼" kerf ring; shapes interlock. `scripts/test-nest.mjs`
+  sanity-checks it against the built server.
 - Builds a cut list from a FurnitureSuite production list (Odoo MOs sharing an
   `x_schedule_number`), or from picked MOs / typed SKUs; nests the pieces onto
   slabs per thickness; drafts an RFQ to the foam vendor for shortfall.

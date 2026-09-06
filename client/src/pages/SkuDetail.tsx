@@ -4,27 +4,29 @@ import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Trash2, Save, UploadCloud, Copy } from 'lucide-react';
+import { Plus, Trash2, Save, UploadCloud, Copy, PenTool } from 'lucide-react';
+import { PieceThumb } from '@/components/foam/NestSheet';
+import { ShapeEditor, type ShapeResult } from '@/components/foam/ShapeEditor';
 
-const bf = (l: number, w: number, h: number) => (l * w * h) / 144;
+const sqInOf = (p: any) => (p.shapeType === 'polygon' && p.areaSqIn ? Number(p.areaSqIn) : Number(p.lengthIn) * Number(p.widthIn));
+const bfOf = (p: any) => (sqInOf(p) * Number(p.heightIn) / 144) * Number(p.qty || 1);
 
 export default function SkuDetail() {
   const { id } = useParams();
   const skuId = Number(id);
   const [sku, setSku] = useState<any>(null);
   const [foams, setFoams] = useState<any[]>([]);
-  const [dacrons, setDacrons] = useState<any[]>([]);
   const [skus, setSkus] = useState<any[]>([]);
-  const [draft, setDraft] = useState<any>({ name: 'Seat core', foamId: '', lengthIn: '', widthIn: '', heightIn: '', qty: 1, wrapDacron: false });
+  const [draft, setDraft] = useState<any>({ name: 'Seat core', foamId: '', lengthIn: '', widthIn: '', heightIn: '', qty: 1, wrapDacron: false, shapeType: 'rect', shape: null });
   const [msg, setMsg] = useState('');
   const [busy, setBusy] = useState(false);
   const [copyFrom, setCopyFrom] = useState('');
+  const [editing, setEditing] = useState<{ target: 'draft' | number; poly: any } | null>(null);
 
   const load = async () => {
-    const [s, f, d, all] = await Promise.all([api.getSku(skuId), api.getFoams(), api.getDacrons(), api.getSkus(true)]);
+    const [s, f, all] = await Promise.all([api.getSku(skuId), api.getFoams(), api.getSkus(true)]);
     setSku(s);
     setFoams(f.filter((x: any) => x.active !== false));
-    setDacrons(d);
     setSkus(all.filter((x: any) => x.id !== skuId && x.pieceCount > 0));
   };
   useEffect(() => { load().catch((e) => setMsg(String(e))); }, [skuId]);
@@ -35,12 +37,13 @@ export default function SkuDetail() {
     const f = foams.find((x) => x.id === Number(foamId));
     setter({ ...cur, foamId, heightIn: f?.thicknessIn && !cur.heightIn ? f.thicknessIn : cur.heightIn });
   };
+  const edit = (p: any, patch: any) => setSku({ ...sku, pieces: sku.pieces.map((x: any) => (x.id === p.id ? { ...x, ...patch, _dirty: true } : x)) });
 
   const add = async () => {
     setBusy(true);
     try {
       await api.addPiece(skuId, { ...draft, sortOrder: sku.pieces.length });
-      setDraft({ ...draft, name: '', lengthIn: '', widthIn: '' });
+      setDraft({ ...draft, name: '', lengthIn: '', widthIn: '', shapeType: 'rect', shape: null, shapeSource: null });
       await load();
     } catch (e: any) { setMsg(e.message); } finally { setBusy(false); }
   };
@@ -58,16 +61,19 @@ export default function SkuDetail() {
       await load();
     } catch (e: any) { setMsg(e.message); } finally { setBusy(false); }
   };
-  const copy = async () => {
-    if (!copyFrom) return;
-    await api.copyPieces(skuId, Number(copyFrom), true);
-    await load();
-  };
+  const copy = async () => { if (!copyFrom) return; await api.copyPieces(skuId, Number(copyFrom), true); await load(); };
 
-  const edit = (p: any, patch: any) => setSku({ ...sku, pieces: sku.pieces.map((x: any) => (x.id === p.id ? { ...x, ...patch } : x)) });
+  const applyShape = (r: ShapeResult) => {
+    const patch = { shapeType: 'polygon', shape: r.poly, shapeSource: r.source, lengthIn: Number(r.lengthIn.toFixed(3)), widthIn: Number(r.widthIn.toFixed(3)), areaSqIn: Number(r.areaSqIn.toFixed(2)) };
+    if (editing?.target === 'draft') setDraft({ ...draft, ...patch });
+    else if (editing) { const p = sku.pieces.find((x: any) => x.id === editing.target); if (p) edit(p, patch); }
+    setEditing(null);
+  };
+  const clearShape = (p: any) => edit(p, { shapeType: 'rect', shape: null, shapeSource: null, areaSqIn: null });
 
   return (
     <div className="space-y-4">
+      {editing && <ShapeEditor initial={editing.poly} onSave={applyShape} onCancel={() => setEditing(null)} />}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <Link to="/skus" className="text-xs text-muted-foreground hover:underline">← SKUs</Link>
@@ -84,31 +90,45 @@ export default function SkuDetail() {
           <CardContent className="p-0">
             <table className="w-full text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-                <tr><th className="p-2">Piece</th><th className="p-2">Foam</th><th className="p-2">L"</th><th className="p-2">W"</th><th className="p-2">Thk"</th><th className="p-2">Qty</th><th className="p-2">Dacron</th><th className="p-2 text-right">BF</th><th className="p-2"></th></tr>
+                <tr><th className="p-2">Shape</th><th className="p-2">Piece</th><th className="p-2">Foam</th><th className="p-2">L"</th><th className="p-2">W"</th><th className="p-2">Thk"</th><th className="p-2">Qty</th><th className="p-2">Dacron</th><th className="p-2 text-right">BF</th><th className="p-2"></th></tr>
               </thead>
               <tbody>
-                {sku.pieces.map((p: any) => (
-                  <tr key={p.id} className="border-b">
-                    <td className="p-2"><Input value={p.name} onChange={(e) => edit(p, { name: e.target.value })} /></td>
-                    <td className="p-2">
-                      <select className="w-full rounded-md border bg-background px-2 py-2 text-sm" value={p.foamId ?? ''} onChange={(e) => onFoamChange(e.target.value, (v) => edit(p, v), p)}>
-                        <option value="">— pick —</option>
-                        {foams.map((f) => <option key={f.id} value={f.id}>{f.grade}</option>)}
-                      </select>
-                    </td>
-                    <td className="p-2 w-20"><Input type="number" step="0.25" value={p.lengthIn} onChange={(e) => edit(p, { lengthIn: e.target.value })} /></td>
-                    <td className="p-2 w-20"><Input type="number" step="0.25" value={p.widthIn} onChange={(e) => edit(p, { widthIn: e.target.value })} /></td>
-                    <td className="p-2 w-20"><Input type="number" step="0.25" value={p.heightIn} onChange={(e) => edit(p, { heightIn: e.target.value })} /></td>
-                    <td className="p-2 w-16"><Input type="number" min={1} value={p.qty} onChange={(e) => edit(p, { qty: e.target.value })} /></td>
-                    <td className="p-2 text-center"><input type="checkbox" checked={!!p.wrapDacron} onChange={(e) => edit(p, { wrapDacron: e.target.checked })} /></td>
-                    <td className="p-2 text-right">{(bf(+p.lengthIn, +p.widthIn, +p.heightIn) * +p.qty).toFixed(2)}</td>
-                    <td className="p-2 whitespace-nowrap">
-                      <Button size="sm" variant="ghost" onClick={() => save(p)} title="Save"><Save className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => remove(p)} title="Delete"><Trash2 className="h-4 w-4 text-red-600" /></Button>
-                    </td>
-                  </tr>
-                ))}
+                {sku.pieces.map((p: any) => {
+                  const shaped = p.shapeType === 'polygon';
+                  return (
+                    <tr key={p.id} className="border-b">
+                      <td className="p-2">
+                        <button className="flex items-center gap-1" title={shaped ? `Edit outline (${p.shapeSource})` : 'Draw / import an outline'} onClick={() => setEditing({ target: p.id, poly: shaped ? p.shape : null })}>
+                          <PieceThumb poly={shaped ? p.shape : null} l={+p.lengthIn} w={+p.widthIn} />
+                        </button>
+                        {shaped && <button className="text-[10px] text-muted-foreground hover:text-red-600" onClick={() => clearShape(p)}>→ rect</button>}
+                      </td>
+                      <td className="p-2"><Input value={p.name} onChange={(e) => edit(p, { name: e.target.value })} /></td>
+                      <td className="p-2">
+                        <select className="w-full rounded-md border bg-background px-2 py-2 text-sm" value={p.foamId ?? ''} onChange={(e) => onFoamChange(e.target.value, (v) => edit(p, v), p)}>
+                          <option value="">— pick —</option>
+                          {foams.map((f) => <option key={f.id} value={f.id}>{f.grade}</option>)}
+                        </select>
+                      </td>
+                      <td className="p-2 w-20"><Input type="number" step="0.25" value={p.lengthIn} disabled={shaped} onChange={(e) => edit(p, { lengthIn: e.target.value })} /></td>
+                      <td className="p-2 w-20"><Input type="number" step="0.25" value={p.widthIn} disabled={shaped} onChange={(e) => edit(p, { widthIn: e.target.value })} /></td>
+                      <td className="p-2 w-20"><Input type="number" step="0.25" value={p.heightIn} onChange={(e) => edit(p, { heightIn: e.target.value })} /></td>
+                      <td className="p-2 w-16"><Input type="number" min={1} value={p.qty} onChange={(e) => edit(p, { qty: e.target.value })} /></td>
+                      <td className="p-2 text-center"><input type="checkbox" checked={!!p.wrapDacron} onChange={(e) => edit(p, { wrapDacron: e.target.checked })} /></td>
+                      <td className="p-2 text-right">{bfOf(p).toFixed(2)}{shaped && <div className="text-[10px] text-muted-foreground">{Number(p.areaSqIn).toFixed(0)} sq in</div>}</td>
+                      <td className="p-2 whitespace-nowrap">
+                        <Button size="sm" variant={p._dirty ? 'default' : 'ghost'} onClick={() => save(p)} title="Save"><Save className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => remove(p)} title="Delete"><Trash2 className="h-4 w-4 text-red-600" /></Button>
+                      </td>
+                    </tr>
+                  );
+                })}
                 <tr className="bg-muted/20">
+                  <td className="p-2">
+                    <button className="flex items-center gap-1" title="Draw / import an outline" onClick={() => setEditing({ target: 'draft', poly: draft.shapeType === 'polygon' ? draft.shape : null })}>
+                      {draft.shapeType === 'polygon' ? <PieceThumb poly={draft.shape} l={+draft.lengthIn} w={+draft.widthIn} /> : <span className="inline-flex h-[44px] w-[44px] items-center justify-center rounded border bg-white text-muted-foreground"><PenTool className="h-4 w-4" /></span>}
+                    </button>
+                  </td>
                   <td className="p-2"><Input placeholder="Seat core" value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} /></td>
                   <td className="p-2">
                     <select className="w-full rounded-md border bg-background px-2 py-2 text-sm" value={draft.foamId} onChange={(e) => onFoamChange(e.target.value, setDraft, draft)}>
@@ -116,12 +136,12 @@ export default function SkuDetail() {
                       {foams.map((f) => <option key={f.id} value={f.id}>{f.grade}</option>)}
                     </select>
                   </td>
-                  <td className="p-2"><Input type="number" step="0.25" placeholder="L" value={draft.lengthIn} onChange={(e) => setDraft({ ...draft, lengthIn: e.target.value })} /></td>
-                  <td className="p-2"><Input type="number" step="0.25" placeholder="W" value={draft.widthIn} onChange={(e) => setDraft({ ...draft, widthIn: e.target.value })} /></td>
+                  <td className="p-2"><Input type="number" step="0.25" placeholder="L" value={draft.lengthIn} disabled={draft.shapeType === 'polygon'} onChange={(e) => setDraft({ ...draft, lengthIn: e.target.value })} /></td>
+                  <td className="p-2"><Input type="number" step="0.25" placeholder="W" value={draft.widthIn} disabled={draft.shapeType === 'polygon'} onChange={(e) => setDraft({ ...draft, widthIn: e.target.value })} /></td>
                   <td className="p-2"><Input type="number" step="0.25" placeholder="T" value={draft.heightIn} onChange={(e) => setDraft({ ...draft, heightIn: e.target.value })} /></td>
                   <td className="p-2"><Input type="number" min={1} value={draft.qty} onChange={(e) => setDraft({ ...draft, qty: e.target.value })} /></td>
                   <td className="p-2 text-center"><input type="checkbox" checked={draft.wrapDacron} onChange={(e) => setDraft({ ...draft, wrapDacron: e.target.checked })} /></td>
-                  <td className="p-2 text-right text-muted-foreground">{draft.lengthIn && draft.widthIn && draft.heightIn ? (bf(+draft.lengthIn, +draft.widthIn, +draft.heightIn) * +draft.qty).toFixed(2) : ''}</td>
+                  <td className="p-2 text-right text-muted-foreground">{draft.lengthIn && draft.widthIn && draft.heightIn ? bfOf(draft).toFixed(2) : ''}</td>
                   <td className="p-2"><Button size="sm" onClick={add} disabled={busy || !draft.lengthIn || !draft.widthIn || !draft.heightIn}><Plus className="h-4 w-4" /></Button></td>
                 </tr>
               </tbody>
@@ -134,6 +154,7 @@ export default function SkuDetail() {
                 {skus.map((s) => <option key={s.id} value={s.id}>{s.code} {s.shortName} ({s.pieceCount})</option>)}
               </select>
               <Button size="sm" variant="outline" onClick={copy} disabled={!copyFrom}>Copy (replaces)</Button>
+              <span className="ml-auto text-xs text-muted-foreground">Click a shape thumbnail to draw a T-cushion, wedge, notch, import a DXF, or trace a photo of the template.</span>
             </div>
           </CardContent>
         </Card>
@@ -156,9 +177,7 @@ export default function SkuDetail() {
                 <div key={l.lineId} className="flex items-center justify-between rounded-md border border-dashed p-2 text-muted-foreground"><span>{l.name}</span><span>{l.qty} {l.uom} in Odoo, not in pattern</span></div>
               ))}
               <p className="text-xs text-muted-foreground">Waste allowance {sku.foam.wastePct}% {sku.wastePct != null ? '(SKU override)' : '(global)'} · Dacron {sku.foam.dacronSqFt} sq ft (not pushed)</p>
-              <div className="flex gap-2">
-                <Input type="number" placeholder="Waste % override" defaultValue={sku.wastePct ?? ''} onBlur={(e) => api.updateSku(skuId, { wastePct: e.target.value }).then(load)} />
-              </div>
+              <Input type="number" placeholder="Waste % override" defaultValue={sku.wastePct ?? ''} onBlur={(e) => api.updateSku(skuId, { wastePct: e.target.value }).then(load)} />
             </CardContent>
           </Card>
           <Card>

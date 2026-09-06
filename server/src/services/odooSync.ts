@@ -14,7 +14,6 @@
  */
 import { prisma } from '../index';
 import { odoo, odooConfigured } from './odoo';
-import { calculateBoardFeet } from '../utils/boardFeet';
 
 /**
  * Manufactured SKU = name starting with a model code then a space. Codes seen in
@@ -210,7 +209,8 @@ export async function computeSkuFoam(skuId: number): Promise<{ totals: FoamTotal
       dacronSqFt += ((2 * l * w + 2 * (l + w) * h) / 144) * p.qty;
     }
     if (!p.foam) continue;
-    const bf = calculateBoardFeet(p.lengthIn, p.widthIn, p.heightIn) * p.qty;
+    const sqIn = p.shapeType === 'polygon' && p.areaSqIn ? p.areaSqIn : p.lengthIn * p.widthIn;
+    const bf = (sqIn * p.heightIn / 144) * p.qty;
     const t = byFoam.get(p.foam.id) ?? { foamId: p.foam.id, grade: p.foam.grade, odooProductId: p.foam.odooProductId, odooTemplateId: p.foam.odooTemplateId, netBoardFeet: 0, boardFeet: 0, pieces: 0 };
     t.netBoardFeet += bf;
     t.pieces += p.qty;

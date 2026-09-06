@@ -1,7 +1,13 @@
 import { Router } from 'express';
 import { prisma } from '../index';
-import { calculateBoardFeet } from '../utils/boardFeet';
 import { computeSkuFoam, pushSkuBom } from '../services/odooSync';
+import { area, bbox, isValid, normalize, round, simplify, type Poly } from '../services/geometry';
+import { parseDxf } from '../services/dxf';
+
+/** Area of a piece in square inches: outline area for shaped pieces, L×W otherwise. */
+export function pieceAreaSqIn(p: { lengthIn: number; widthIn: number; areaSqIn?: number | null; shapeType?: string }): number {
+  return p.shapeType === 'polygon' && p.areaSqIn ? p.areaSqIn : p.lengthIn * p.widthIn;
+}
 
 const router = Router();
 
@@ -15,7 +21,7 @@ router.get('/', async (req, res, next) => {
       orderBy: [{ collection: 'asc' }, { code: 'asc' }],
     });
     const rows = skus.map((s) => {
-      const bf = s.pieces.reduce((a, p) => a + (p.foam ? calculateBoardFeet(p.lengthIn, p.widthIn, p.heightIn) * p.qty : 0), 0);
+      const bf = s.pieces.reduce((a, p) => a + (p.foam ? (pieceAreaSqIn(p) * p.heightIn / 144) * p.qty : 0), 0);
       const odooBf = ((s.odooFoamLines as any[]) ?? []).reduce((a, l) => a + (l.qty || 0), 0);
       const unassigned = s.pieces.filter((p) => !p.foamId).length;
       const status = !s.pieces.length ? 'missing' : unassigned ? 'partial' : 'ready';
@@ -49,7 +55,7 @@ router.put('/:id', async (req, res, next) => {
 
 // ---- pieces ----
 function pieceData(b: any) {
-  return {
+  const base: any = {
     name: String(b.name ?? '').trim() || 'Piece',
     foamId: b.foamId ? Number(b.foamId) : null,
     lengthIn: Number(b.lengthIn) || 0,
@@ -60,8 +66,35 @@ function pieceData(b: any) {
     wrapDacron: !!b.wrapDacron,
     notes: b.notes ?? null,
     sortOrder: Number(b.sortOrder) || 0,
+    shapeType: 'rect',
+    shape: null,
+    areaSqIn: null,
+    shapeSource: null,
   };
+  if (b.shapeType === 'polygon' && isValid(b.shape)) {
+    const poly = normalize(simplify(b.shape as Poly, 0.02));
+    const bb = bbox(poly);
+    base.shapeType = 'polygon';
+    base.shape = poly;
+    base.areaSqIn = round(area(poly), 2);
+    base.lengthIn = round(bb.w, 3);
+    base.widthIn = round(bb.h, 3);
+    base.shapeSource = b.shapeSource ? String(b.shapeSource).slice(0, 40) : 'drawn';
+  } else {
+    base.areaSqIn = round(base.lengthIn * base.widthIn, 2);
+  }
+  return base;
 }
+
+/** Parse a DXF (base64) into an outline the editor can show / a piece can store. */
+router.post('/parse-dxf', async (req, res, next) => {
+  try {
+    const text = Buffer.from(String(req.body?.data ?? ''), 'base64').toString('utf8');
+    const r = parseDxf(text);
+    const bb = bbox(r.poly);
+    res.json({ poly: r.poly, units: r.units, entities: r.entities, lengthIn: round(bb.w, 3), widthIn: round(bb.h, 3), areaSqIn: round(area(r.poly), 2) });
+  } catch (err) { next(err); }
+});
 
 router.post('/:id/pieces', async (req, res, next) => {
   try {
@@ -89,7 +122,7 @@ router.post('/:id/copy-from/:sourceId', async (req, res, next) => {
   try {
     const src = await prisma.foamPiece.findMany({ where: { skuId: +req.params.sourceId } });
     if (req.body?.replace) await prisma.foamPiece.deleteMany({ where: { skuId: +req.params.id } });
-    await prisma.foamPiece.createMany({ data: src.map(({ id: _id, skuId: _s, createdAt: _c, updatedAt: _u, ...p }) => ({ ...p, skuId: +req.params.id })) });
+    await prisma.foamPiece.createMany({ data: src.map(({ id: _id, skuId: _s, createdAt: _c, updatedAt: _u, ...p }) => ({ ...p, shape: (p.shape ?? undefined) as any, skuId: +req.params.id })) });
     res.json({ copied: src.length });
   } catch (err) { next(err); }
 });

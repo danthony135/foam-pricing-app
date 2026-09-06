@@ -78,9 +78,13 @@ model FoamPiece {
   name       String   // Seat core, Back core, Arm pad, Deck pad…
   foamId     Int?
   foam       Foam?    @relation(fields: [foamId], references: [id])
-  lengthIn   Float
-  widthIn    Float
+  lengthIn   Float    // bbox length (x) — for shaped pieces derived from the outline
+  widthIn    Float    // bbox width (y)
   heightIn   Float    // thickness
+  shapeType  String   @default("rect") // rect | polygon
+  shape      Json?    // polygon outline [[x,y],…] in inches, y-down, normalized to (0,0)
+  areaSqIn   Float?   // true area of the outline (rect: L×W)
+  shapeSource String? // preset:t-cushion | dxf | photo | drawn
   qty        Int      @default(1)
   dacronId   Int?
   dacron     Dacron?  @relation(fields: [dacronId], references: [id])

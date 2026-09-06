@@ -28,35 +28,6 @@ export interface Dacron {
   updatedAt: string;
 }
 
-export interface Customer {
-  id: number;
-  name: string;
-  code: string;
-  shippingCostPerBF: number;
-  markupPercent: number;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  foamPricing?: CustomerFoamPricing[];
-  partNumberTemplate?: PartNumberTemplate | null;
-  quotes?: CushionQuote[];
-}
-
-export interface CustomerFoamPricing {
-  id: number;
-  customerId: number;
-  foamId: number;
-  overrideCostPerBF: number | null;
-  overrideMarkup: number | null;
-  foam?: Foam;
-}
-
-export interface PartNumberTemplate {
-  id: number;
-  customerId: number;
-  template: string;
-}
-
 export interface FoamInventory {
   id: number;
   foamId: number;
@@ -76,126 +47,19 @@ export interface DacronInventory {
   dacron?: Dacron;
 }
 
-export interface LaborSettings {
+export interface Sku {
   id: number;
-  defaultMakeTimeMin: number;
-  avgHourlyRate: number;
-}
-
-export interface OverheadSettings {
-  id: number;
-  facilityOverheadPercent: number;
-  indirectLaborPercent: number;
-  defaultMarkupPercent: number;
-}
-
-export interface PricingBreakdown {
-  boardFeet: number;
-  dacronSqFt: number | null;
-  foamMaterialCost: number;
-  dacronMaterialCost: number;
-  totalMaterialCost: number;
-  laborCost: number;
-  materialPlusLabor: number;
-  overheadAmount: number;
-  afterOverhead: number;
-  indirectLaborAmount: number;
-  subtotal: number;
-  markupAmount: number;
-  afterMarkup: number;
-  shippingCost: number;
-  unitPrice: number;
-  totalPrice: number;
-  partNumber: string | null;
-  foamGrade?: string;
-  customerCode?: string;
-}
-
-export interface CushionQuote {
-  id: number;
-  customerId: number;
-  foamId: number;
-  dacronId: number | null;
-  lengthIn: number;
-  widthIn: number;
-  heightIn: number;
-  foamTolerancePct: number;
-  dacronTolerancePct: number;
-  quantity: number;
-  makeTimeMin: number;
-  boardFeet: number;
-  dacronSqFt: number | null;
-  materialCost: number;
-  laborCost: number;
-  overheadAmount: number;
-  indirectLaborAmount: number;
-  subtotal: number;
-  markupAmount: number;
-  shippingCost: number;
-  unitPrice: number;
-  totalPrice: number;
-  partNumber: string | null;
-  status: string;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-  customer?: Customer;
-  foam?: Foam;
-  dacron?: Dacron | null;
-}
-
-export interface PricingRule {
-  id: number;
+  odooTemplateId: number;
+  code: string;
   name: string;
-  ruleType: string;
-  conditions: any;
-  actions: any;
-  priority: number;
-  isActive: boolean;
-}
-
-export interface AiChatMessage {
-  id: number;
-  role: string;
-  content: string;
-  toolCalls?: any;
-  createdAt: string;
-}
-
-// Quote Import Pipeline Types
-export interface RawQuoteLineItem {
-  customerRef: string;
-  foamRef: string;
-  lengthIn: number;
-  widthIn: number;
-  heightIn: number;
-  quantity: number;
-  dacronRef?: string;
-  notes?: string;
-}
-
-export interface ResolvedQuoteLineItem extends RawQuoteLineItem {
-  customerId: number | null;
-  customerName: string | null;
-  foamId: number | null;
-  foamGrade: string | null;
-  dacronId: number | null;
-  dacronName: string | null;
-  errors: string[];
-}
-
-export interface PricedQuoteLineItem extends ResolvedQuoteLineItem {
-  unitPrice: number;
-  totalPrice: number;
-  boardFeet: number;
-  dacronSqFt: number | null;
-  materialCost: number;
-  laborCost: number;
-  overheadAmount: number;
-  indirectLaborAmount: number;
-  subtotal: number;
-  markupAmount: number;
-  shippingCost: number;
-  makeTimeMin: number;
-  partNumber: string | null;
+  shortName: string;
+  collection: string;
+  active: boolean;
+  odooBomId: number | null;
+  pieceCount: number;
+  netBoardFeet: number;
+  odooBoardFeet: number;
+  status: 'ready' | 'partial' | 'missing';
+  pushedAt: string | null;
+  lastSyncedAt: string | null;
 }

@@ -16,7 +16,13 @@ import { prisma } from '../index';
 import { odoo, odooConfigured } from './odoo';
 import { calculateBoardFeet } from '../utils/boardFeet';
 
-export const SKU_NAME_RE = /^(L?\d{3}-\d{2,3}[A-Za-z]?)\s+(.*)$/;
+/**
+ * Manufactured SKU = name starting with a model code then a space. Codes seen in
+ * production lists: 400-30, 787-35L, L400-30, LB500-50, L-AR30, A-AR18, AR18,
+ * AX18, ADB-41, 1717S, "700-02 / 746-02 …". Raw materials start with "[A000xx]",
+ * bean bags / FH / Luxe names start with words, so neither matches.
+ */
+export const SKU_NAME_RE = /^([A-Z]{0,3}-?[A-Z]{0,2}\d{2,4}[A-Z]?(?:-\d{2,3}[A-Z]?)?)\s+(.*)$/;
 export const DEFAULT_WASTE_PCT = 10;
 export const DEFAULT_VENDOR_ID = 43; // Foam Brothers
 

@@ -1,34 +1,41 @@
-# Foam Pricing App
+# Foam App (CP Furniture Manufacturing)
+
+Factory tool for the foam cutters. Not a pricing app any more — the quoting,
+customers, pricing rules and AI pricing chat were removed on 2026-09-06.
+
+What it does:
+- Syncs manufactured SKUs and slab foam products (board feet) from Odoo.
+- Holds the foam pattern per SKU (pieces L × W × thickness × qty, per slab foam)
+  and pushes the board-feet lines onto the SKU's Odoo BOM.
+- Builds a cut list from a FurnitureSuite production list (Odoo MOs sharing an
+  `x_schedule_number`), or from picked MOs / typed SKUs; nests the pieces onto
+  slabs per thickness; drafts an RFQ to the foam vendor for shortfall.
+- Cut Station: the operator picks their production list, then works slab by
+  slab from a to-scale picture (cardboard templates), ticking slabs off.
 
 ## Project Structure
-- **Monorepo**: npm workspaces with `server/` and `client/`
-- **Server**: Express + TypeScript + Prisma (PostgreSQL)
-- **Client**: React + Vite + Tailwind CSS v4 + shadcn/ui
+- npm workspaces: `server/` (Express + TypeScript + Prisma/SQLite) and
+  `client/` (React + Vite + Tailwind v4 + shadcn/ui).
+- `server/src/services/odoo.ts` JSON-2 client · `odooSync.ts` SKUs/materials/
+  schedules/BOM push/RFQ · `cutOptimizer.ts` slab nesting ·
+  `foamRequirements.ts` requirement + plan per order.
+- Routes: `/api/skus`, `/api/odoo`, `/api/foam-orders`, `/api/foams`,
+  `/api/dacrons`, `/api/inventory`.
 
-## Key Commands
-- `npm run dev` — Start both server (3001) and client (5173) in dev mode
-- `npm run build` — Build client then server for production
-- `npm start` — Run production server (serves client build as static)
-- `npm run prisma:migrate` — Apply database migrations
-- `npm run prisma:seed` — Seed default settings and sample data
+## Commands
+- `npm run dev` — server (3001) + client (5173)
+- `npm run build` — client then server
+- `npm start` — `scripts/start.mjs`: seeds the SQLite file on first boot,
+  runs `prisma migrate deploy`, starts the server
+- New migration (Prisma refuses `migrate dev` non-interactively):
+  `npx prisma migrate diff --from-url "file:<abs path to dev.db>" --to-schema-datamodel server/prisma/schema.prisma --script > server/prisma/migrations/<stamp>_<name>/migration.sql`
+  then `DATABASE_URL=file:./dev.db npx prisma migrate deploy --schema=server/prisma/schema.prisma`
 
-## Pricing Formula
-```
-Total = ((Material + Labor) × (1 + Overhead%) × (1 + IndirectLabor%)) × (1 + Markup%) + Shipping
-```
-- Material = (BoardFeet w/ tolerance × Foam $/BF) + (Dacron SqFt w/ tolerance × Dacron $/SqFt)
-- Board Feet = L × W × H / 144
-- Tolerance applied per dimension: dim × (1 + tolerance%)
-- Labor = MakeTime (hrs) × HourlyRate
-- Shipping = BoardFeet × Customer ShippingRate/BF
+## Env
+`DATABASE_URL` (file:/data/foam.db on Railway), `ODOO_URL`, `ODOO_DB`,
+`ODOO_API_KEY`, `ODOO_SYNC_INTERVAL_MIN`. Keep only the root `.env` locally
+(a second one under `server/prisma` conflicts).
 
-## API Conventions
-- All routes under `/api/`
-- RESTful CRUD: GET (list), GET/:id, POST, PUT/:id, DELETE/:id
-- Pricing endpoint: POST `/api/pricing/calculate`
-- AI chat: POST `/api/ai/chat`
-
-## Database
-- PostgreSQL via Prisma ORM
-- Schema at `server/prisma/schema.prisma`
-- Singleton patterns for LaborSettings and OverheadSettings (upsert with id=1)
+## Deploy
+Railway project/service `foam-app`, https://foam-app.up.railway.app, master
+auto-deploys (Dockerfile build).

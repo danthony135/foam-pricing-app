@@ -18,9 +18,16 @@ export default function FoamOrders() {
   const [manual, setManual] = useState(false);
   const [skus, setSkus] = useState<any[]>([]);
   const [manualLines, setManualLines] = useState<{ skuId: string; qty: string }[]>([{ skuId: '', qty: '1' }]);
+  const [schedules, setSchedules] = useState<any[]>([]);
+  const [building, setBuilding] = useState<string | null>(null);
 
   const load = () => api.getFoamOrders().then(setOrders).catch((e) => setMsg(String(e)));
-  useEffect(() => { load(); api.getSkus().then(setSkus).catch(() => null); }, []);
+  useEffect(() => { load(); api.getSkus().then(setSkus).catch(() => null); api.getSchedules().then(setSchedules).catch(() => null); }, []);
+
+  const buildFromSchedule = async (n: string) => {
+    setBuilding(n);
+    try { const r = await api.buildScheduleOrder(n); nav(`/foam-orders/${r.order.id}`); } catch (e: any) { setMsg(e.message); } finally { setBuilding(null); }
+  };
 
   const loadMos = async () => {
     setLoadingMos(true);
@@ -54,6 +61,24 @@ export default function FoamOrders() {
         <Link to="/cut-station"><Button variant="outline">Open cut station</Button></Link>
       </div>
       {msg && <div className="rounded-md border bg-muted p-3 text-sm">{msg}</div>}
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Production lists (FurnitureSuite schedules)</CardTitle></CardHeader>
+        <CardContent>
+          {!schedules.length && <p className="text-sm text-muted-foreground">No open production lists in Odoo right now.</p>}
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {schedules.map((l) => (
+              <div key={l.scheduleNumber} className="flex items-center justify-between rounded-lg border p-3">
+                <div>
+                  <div className="text-lg font-bold">List {l.scheduleNumber}</div>
+                  <div className="text-xs text-muted-foreground">{l.moCount} orders · {l.withPattern}/{l.moCount} with pattern{l.slabs ? ` · ${l.slabsDone}/${l.slabs} slabs cut` : ''}</div>
+                </div>
+                {l.orderId ? <Link to={`/foam-orders/${l.orderId}`}><Button size="sm" variant="outline">Open</Button></Link> : <Button size="sm" onClick={() => buildFromSchedule(l.scheduleNumber)} disabled={building !== null}>{building === l.scheduleNumber ? 'Nesting…' : 'Build'}</Button>}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">

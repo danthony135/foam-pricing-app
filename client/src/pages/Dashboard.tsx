@@ -1,237 +1,80 @@
-import { useState, useEffect } from "react";
-import { api } from "@/lib/api";
-import { formatCurrency } from "@/lib/utils";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardContent,
-} from "@/components/ui/card";
-import { Box, Users, FileText, AlertTriangle } from "lucide-react";
-import { Link } from "react-router-dom";
-
-interface Foam {
-  id: number;
-  grade: string;
-  density: number;
-  ild: number;
-  costPerBoardFoot: number;
-  supplier: string;
-  stockQuantity?: number;
-  lowStockThreshold?: number;
-}
-
-interface Customer {
-  id: number;
-  name: string;
-}
-
-interface Quote {
-  id: number;
-  date: string;
-  customerName: string;
-  foamGrade: string;
-  length: number;
-  width: number;
-  height: number;
-  unitPrice: number;
-  status: "draft" | "sent" | "accepted" | "rejected";
-}
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { api } from '@/lib/api';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tags, Scissors, Monitor, AlertTriangle } from 'lucide-react';
 
 export default function Dashboard() {
-  const [foams, setFoams] = useState<Foam[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [lowStockAlerts, setLowStockAlerts] = useState<Foam[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [skus, setSkus] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [status, setStatus] = useState<any>(null);
+  const [low, setLow] = useState<any[]>([]);
+  const [err, setErr] = useState('');
 
   useEffect(() => {
-    async function fetchData() {
-      try {
-        const [foamsData, customersData, quotesData, lowStockData] =
-          await Promise.all([
-            api.getFoams(),
-            api.getCustomers(),
-            api.getQuotes(),
-            api.getFoamLowStock(),
-          ]);
-        setFoams(foamsData);
-        setCustomers(customersData);
-        setQuotes(quotesData);
-        setLowStockAlerts(lowStockData);
-      } catch (error) {
-        console.error("Failed to fetch dashboard data:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchData();
+    Promise.all([api.getSkus(), api.getFoamOrders(), api.getOdooStatus(), api.getFoamLowStock().catch(() => [])])
+      .then(([s, o, st, l]) => { setSkus(s); setOrders(o); setStatus(st); setLow(l); })
+      .catch((e) => setErr(String(e)));
   }, []);
 
-  if (loading) {
-    return <div className="p-6 text-center text-gray-500">Loading...</div>;
-  }
-
-  const recentQuotes = quotes.slice(0, 5);
-
-  const statusColor: Record<string, string> = {
-    draft: "bg-gray-200 text-gray-800",
-    sent: "bg-blue-200 text-blue-800",
-    accepted: "bg-green-200 text-green-800",
-    rejected: "bg-red-200 text-red-800",
-  };
+  const ready = skus.filter((s) => s.status === 'ready').length;
+  const partial = skus.filter((s) => s.status === 'partial').length;
+  const missing = skus.filter((s) => s.status === 'missing').length;
+  const open = orders.filter((o) => !['done'].includes(o.status));
+  const byCollection = Object.entries(skus.reduce((acc: Record<string, { n: number; ready: number }>, s) => { const c = (acc[s.collection || '(none)'] ??= { n: 0, ready: 0 }); c.n++; if (s.status === 'ready') c.ready++; return acc; }, {})).sort((a, b) => b[1].n - a[1].n);
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Dashboard</h1>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold">Foam App</h1>
+        <p className="text-sm text-muted-foreground">Foam patterns by SKU → board-feet BOMs in Odoo → cut lists nested onto slabs → the cut station screen.</p>
+      </div>
+      {err && <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm">{err}</div>}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Total Foams
-            </CardTitle>
-            <Box className="h-5 w-5 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{foams.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Total Customers
-            </CardTitle>
-            <Users className="h-5 w-5 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{customers.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Recent Quotes
-            </CardTitle>
-            <FileText className="h-5 w-5 text-gray-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{quotes.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-gray-500">
-              Low Stock Alerts
-            </CardTitle>
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {lowStockAlerts.length}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Link to="/skus"><Card className="h-full hover:bg-muted/40"><CardContent className="p-5"><div className="text-3xl font-bold">{skus.length}</div><div className="text-sm text-muted-foreground">SKUs from Odoo</div></CardContent></Card></Link>
+        <Link to="/skus?status=ready"><Card className="h-full hover:bg-muted/40"><CardContent className="p-5"><div className="text-3xl font-bold text-emerald-600">{ready}</div><div className="text-sm text-muted-foreground">Patterns ready</div></CardContent></Card></Link>
+        <Link to="/skus"><Card className="h-full hover:bg-muted/40"><CardContent className="p-5"><div className="text-3xl font-bold text-amber-600">{partial + missing}</div><div className="text-sm text-muted-foreground">Still need a pattern ({partial} need a foam type)</div></CardContent></Card></Link>
+        <Link to="/foam-orders"><Card className="h-full hover:bg-muted/40"><CardContent className="p-5"><div className="text-3xl font-bold">{open.length}</div><div className="text-sm text-muted-foreground">Open cut lists</div></CardContent></Card></Link>
       </div>
 
-      {/* Recent Quotes Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Recent Quotes</CardTitle>
-          <Link
-            to="/quotes"
-            className="text-sm text-blue-600 hover:underline"
-          >
-            View all
-          </Link>
-        </CardHeader>
-        <CardContent>
-          {recentQuotes.length === 0 ? (
-            <p className="text-gray-500 text-sm">No quotes yet.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-gray-500">
-                    <th className="pb-2 pr-4">Date</th>
-                    <th className="pb-2 pr-4">Customer</th>
-                    <th className="pb-2 pr-4">Foam Grade</th>
-                    <th className="pb-2 pr-4">Dimensions</th>
-                    <th className="pb-2 pr-4">Unit Price</th>
-                    <th className="pb-2">Status</th>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="lg:col-span-2">
+          <CardHeader><CardTitle className="text-base">Pattern coverage by collection</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <tbody>
+                {byCollection.map(([c, v]) => (
+                  <tr key={c} className="border-b">
+                    <td className="p-2">{c}</td>
+                    <td className="p-2 w-1/2"><div className="h-2 w-full rounded bg-muted"><div className="h-2 rounded bg-emerald-500" style={{ width: `${v.n ? (v.ready / v.n) * 100 : 0}%` }} /></div></td>
+                    <td className="p-2 text-right text-muted-foreground">{v.ready}/{v.n}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {recentQuotes.map((quote) => (
-                    <tr key={quote.id} className="border-b last:border-0">
-                      <td className="py-2 pr-4">
-                        {new Date(quote.date).toLocaleDateString()}
-                      </td>
-                      <td className="py-2 pr-4">{quote.customerName}</td>
-                      <td className="py-2 pr-4">{quote.foamGrade}</td>
-                      <td className="py-2 pr-4">
-                        {quote.length}" x {quote.width}" x {quote.height}"
-                      </td>
-                      <td className="py-2 pr-4">
-                        {formatCurrency(quote.unitPrice)}
-                      </td>
-                      <td className="py-2">
-                        <span
-                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium capitalize ${
-                            statusColor[quote.status] ?? "bg-gray-200 text-gray-800"
-                          }`}
-                        >
-                          {quote.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Low Stock Alerts Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Low Stock Alerts</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {lowStockAlerts.length === 0 ? (
-            <p className="text-gray-500 text-sm">
-              All foam stock levels are healthy.
-            </p>
-          ) : (
-            <ul className="space-y-2">
-              {lowStockAlerts.map((foam) => (
-                <li
-                  key={foam.id}
-                  className="flex items-center justify-between rounded-md border border-yellow-200 bg-yellow-50 px-4 py-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-yellow-600" />
-                    <span className="font-medium">{foam.grade}</span>
-                    <span className="text-gray-500 text-sm">
-                      — {foam.supplier}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Stock: {foam.stockQuantity ?? 0} / Threshold:{" "}
-                    {foam.lowStockThreshold ?? 0}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+                {!skus.length && <tr><td className="p-4 text-muted-foreground">No SKUs yet — run a sync in Settings.</td></tr>}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader><CardTitle className="text-base">Shortcuts</CardTitle></CardHeader>
+            <CardContent className="grid gap-2 text-sm">
+              <Link to="/skus" className="flex items-center gap-2 rounded-md border p-2 hover:bg-muted/40"><Tags className="h-4 w-4" /> Enter or import patterns</Link>
+              <Link to="/foam-orders" className="flex items-center gap-2 rounded-md border p-2 hover:bg-muted/40"><Scissors className="h-4 w-4" /> Build a cut list from open MOs</Link>
+              <Link to="/cut-station" className="flex items-center gap-2 rounded-md border p-2 hover:bg-muted/40"><Monitor className="h-4 w-4" /> Open the cut station screen</Link>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="text-base">Low foam stock</CardTitle></CardHeader>
+            <CardContent className="text-sm">
+              {!low.length && <div className="text-muted-foreground">Nothing under threshold.</div>}
+              {low.map((l: any) => <div key={l.id} className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-500" /> {l.foam?.grade}: {l.boardFeetOnHand} BF</div>)}
+            </CardContent>
+          </Card>
+          <Card><CardContent className="p-4 text-xs text-muted-foreground">Odoo: {status?.configured ? 'connected' : 'not configured'}{status?.skusSyncedAt ? ` · last sync ${new Date(status.skusSyncedAt).toLocaleString()}` : ''}</CardContent></Card>
+        </div>
+      </div>
     </div>
   );
 }

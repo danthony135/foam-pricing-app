@@ -25,9 +25,7 @@ model Foam {
   active           Boolean                @default(true)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt
-  customerPricing  CustomerFoamPricing[]
   inventory        FoamInventory?
-  quotes           CushionQuote[]
   pieces           FoamPiece[]
 }
 
@@ -44,7 +42,6 @@ model Dacron {
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   inventory       DacronInventory?
-  quotes          CushionQuote[]
   pieces          FoamPiece[]
 }
 
@@ -101,7 +98,9 @@ model FoamOrder {
   id           Int      @id @default(autoincrement())
   name         String
   status       String   @default("draft") // draft | optimized | ordered | cut | done
-  source       String   @default("manual") // manual | mo
+  source       String   @default("manual") // manual | mo | schedule
+  scheduleNumber String? @unique // FurnitureSuite production list (mrp.production.x_schedule_number)
+  cutProgress  Json?    // {done: ["<foamId>-<slabIndex>", …], updatedAt}
   lines        Json     // [{skuId, code, name, qty, moName?, moId?}]
   requirements Json?    // per foam: pieces, boardFeet, withWaste, onHand, shortfall
   cutPlan      Json?    // per foam: sheets[] with placed rectangles
@@ -118,33 +117,7 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
-model Customer {
-  id                 Int                    @id @default(autoincrement())
-  name               String
-  code               String                 @unique
-  shippingCostPerBF  Float                  @default(0)
-  markupPercent      Float                  @default(0)
-  notes              String?
-  createdAt          DateTime               @default(now())
-  updatedAt          DateTime               @updatedAt
-  foamPricing        CustomerFoamPricing[]
-  partNumberTemplate PartNumberTemplate?
-  quotes             CushionQuote[]
-}
 
-model CustomerFoamPricing {
-  id               Int      @id @default(autoincrement())
-  customerId       Int
-  foamId           Int
-  overrideCostPerBF Float?
-  overrideMarkup    Float?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  customer         Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  foam             Foam     @relation(fields: [foamId], references: [id], onDelete: Cascade)
-
-  @@unique([customerId, foamId])
-}
 
 model FoamInventory {
   id                Int      @id @default(autoincrement())
@@ -165,79 +138,8 @@ model DacronInventory {
   dacron            Dacron   @relation(fields: [dacronId], references: [id], onDelete: Cascade)
 }
 
-model LaborSettings {
-  id                  Int      @id @default(1)
-  defaultMakeTimeMin  Float    @default(30)
-  avgHourlyRate       Float    @default(25)
-  updatedAt           DateTime @updatedAt
-}
 
-model OverheadSettings {
-  id                     Int      @id @default(1)
-  facilityOverheadPercent Float   @default(15)
-  indirectLaborPercent    Float   @default(10)
-  defaultMarkupPercent    Float   @default(30)
-  updatedAt              DateTime @updatedAt
-}
 
-model PartNumberTemplate {
-  id         Int      @id @default(autoincrement())
-  customerId Int      @unique
-  template   String   @default("{customer_code}-{foam_grade}-{L}x{W}x{H}")
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-}
 
-model PricingRule {
-  id         Int      @id @default(autoincrement())
-  name       String
-  ruleType   String   @default("manual")
-  conditions Json
-  actions    Json
-  priority   Int      @default(0)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
 
-model CushionQuote {
-  id                 Int      @id @default(autoincrement())
-  customerId         Int
-  foamId             Int
-  dacronId           Int?
-  lengthIn           Float
-  widthIn            Float
-  heightIn           Float
-  foamTolerancePct   Float    @default(0)
-  dacronTolerancePct Float    @default(0)
-  quantity           Int      @default(1)
-  makeTimeMin        Float
-  boardFeet          Float
-  dacronSqFt         Float?
-  materialCost       Float
-  laborCost          Float
-  overheadAmount     Float
-  indirectLaborAmount Float
-  subtotal           Float
-  markupAmount       Float
-  shippingCost       Float
-  unitPrice          Float
-  totalPrice         Float
-  partNumber         String?
-  status             String   @default("draft")
-  notes              String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  customer           Customer @relation(fields: [customerId], references: [id])
-  foam               Foam     @relation(fields: [foamId], references: [id])
-  dacron             Dacron?  @relation(fields: [dacronId], references: [id])
-}
 
-model AiChatMessage {
-  id        Int      @id @default(autoincrement())
-  role      String
-  content   String
-  toolCalls Json?
-  createdAt DateTime @default(now())
-}

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { buildCutPlan, buildRequirements, type OrderLine } from '../services/foamRequirements';
 import { createFoamRfq, fetchOpenMos } from '../services/odooSync';
+import { saveProgress, upsertScheduleOrder } from '../services/scheduleOrders';
 
 const router = Router();
 
@@ -49,11 +50,28 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+/** Build or refresh the order for a FurnitureSuite production list (schedule number). */
+router.post('/from-schedule', async (req, res, next) => {
+  try {
+    const n = String(req.body?.scheduleNumber ?? '').trim();
+    if (!n) return res.status(400).json({ error: 'scheduleNumber required' });
+    res.json(await upsertScheduleOrder(n));
+  } catch (err) { next(err); }
+});
+
+/** Slab progress from the cut station (server-side so any screen shows the same state). */
+router.put('/:id/progress', async (req, res, next) => {
+  try {
+    res.json(await saveProgress(+req.params.id, Array.isArray(req.body?.done) ? req.body.done.map(String) : []));
+  } catch (err) { next(err); }
+});
+
 /** Recompute after patterns or stock changed. */
 router.post('/:id/optimize', async (req, res, next) => {
   try {
     const o = await prisma.foamOrder.findUnique({ where: { id: +req.params.id } });
     if (!o) return res.status(404).json({ error: 'Order not found' });
+    if (o.source === 'schedule' && o.scheduleNumber) return res.json((await upsertScheduleOrder(o.scheduleNumber)).order);
     const requirements = await buildRequirements(o.lines as any);
     const cutPlan = buildCutPlan(requirements);
     res.json(await prisma.foamOrder.update({ where: { id: o.id }, data: { requirements: requirements as any, cutPlan: cutPlan as any, status: o.status === 'draft' ? 'optimized' : o.status } }));

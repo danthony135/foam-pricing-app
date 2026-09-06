@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../index';
 import { odooConfigured } from '../services/odoo';
 import { fetchOpenMos, getSetting, setSetting, syncFoamMaterials, syncSkus, DEFAULT_VENDOR_ID, DEFAULT_WASTE_PCT } from '../services/odooSync';
+import { fetchSchedules } from '../services/scheduleOrders';
 
 const router = Router();
 
@@ -53,6 +54,10 @@ router.get('/mos', async (req, res, next) => {
     const states = typeof req.query.states === 'string' ? req.query.states.split(',') : undefined;
     res.json(await fetchOpenMos({ states }));
   } catch (err) { next(err); }
+});
+
+router.get('/schedules', async (_req, res, next) => {
+  try { res.json(await fetchSchedules()); } catch (err) { next(err); }
 });
 
 export default router;

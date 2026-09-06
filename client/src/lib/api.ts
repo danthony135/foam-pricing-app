@@ -43,6 +43,9 @@ export const api = {
   deleteFoamOrder: (id: number) => request<any>(`/foam-orders/${id}`, { method: 'DELETE' }),
   createFoamRfq: (id: number, full = false) => request<any>(`/foam-orders/${id}/rfq`, { method: 'POST', body: JSON.stringify({ full }) }),
 
+  // Scrap
+  getScrap: (days = 90) => request<any>(`/scrap?days=${days}`),
+
   // Foams (slab stock)
   getFoams: () => request<any[]>('/foams'),
   getFoam: (id: number) => request<any>(`/foams/${id}`),

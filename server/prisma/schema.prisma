@@ -115,6 +115,27 @@ model FoamOrder {
   updatedAt    DateTime @updatedAt
 }
 
+// Scrap per slab type, logged when a cut list is finished (all slabs ticked).
+model ScrapLog {
+  id             Int      @id @default(autoincrement())
+  foamOrderId    Int
+  foamId         Int
+  grade          String
+  scheduleNumber String?
+  slabs          Int
+  slabSqIn       Float    // one slab's area
+  usedSqIn       Float
+  scrapSqIn      Float
+  scrapBF        Float    // scrap × thickness / 144
+  usedBF         Float
+  gluedPieces    Int      @default(0)
+  remnants       Json?    // largest free rectangles per slab [{slab, w, h}]
+  createdAt      DateTime @default(now())
+
+  @@unique([foamOrderId, foamId])
+  @@index([foamId, createdAt])
+}
+
 model AppSetting {
   key       String   @id
   value     Json

@@ -3,6 +3,7 @@ import { prisma } from '../index';
 import { buildCutPlan, buildRequirements, type OrderLine } from '../services/foamRequirements';
 import { createFoamRfq, fetchOpenMos } from '../services/odooSync';
 import { saveProgress, upsertScheduleOrder } from '../services/scheduleOrders';
+import { logScrapForOrder } from '../services/scrap';
 
 const router = Router();
 
@@ -85,7 +86,9 @@ router.post('/:id/rfq', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { status, notes, name } = req.body;
-    res.json(await prisma.foamOrder.update({ where: { id: +req.params.id }, data: { status, notes, name } }));
+    const o = await prisma.foamOrder.update({ where: { id: +req.params.id }, data: { status, notes, name } });
+    if (status === 'cut' || status === 'done') await logScrapForOrder(o.id).catch((e) => console.error('[scrap] log failed', e));
+    res.json(o);
   } catch (err) { next(err); }
 });
 

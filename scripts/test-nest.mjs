@@ -45,3 +45,20 @@ for (const s of plan.sheets) {
 const dxf = `0\nSECTION\n2\nHEADER\n9\n$INSUNITS\n70\n1\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n8\n0\n90\n8\n70\n1\n10\n0\n20\n0\n10\n26\n20\n0\n10\n26\n20\n-4\n10\n23\n20\n-4\n10\n23\n20\n-24\n10\n3\n20\n-24\n10\n3\n20\n-4\n10\n0\n20\n-4\n0\nENDSEC\n0\nEOF\n`;
 const r = parseDxf(dxf);
 console.log('dxf →', r.units, r.entities, 'entities, area', area(r.poly).toFixed(1), 'pts', r.poly.length, JSON.stringify(r.poly));
+
+// --- glue-ups: pieces that would open a new slab get split once into scrap ---
+{
+  const t0 = Date.now();
+  const plan = packPieces(
+    [
+      { label: '500-30 Seat', l: 30, w: 26, qty: 5 },   // 2 per row (60), scrap 22" strip on the right
+      { label: '500-30 Back', l: 30, w: 20, qty: 2 },
+    ],
+    82, 36
+  );
+  console.log(`glue test: ${plan.pieceCount} pieces on ${plan.sheets.length} slabs, glued ${plan.gluedPieces}, util ${Math.round(plan.utilization * 100)}%, ${Date.now() - t0}ms`);
+  for (const s of plan.sheets) console.log(` slab ${s.index}: ` + s.pieces.map((p) => `${p.label.split(' ')[1]}@${p.x},${p.y} ${p.w}x${p.h}${p.glue ? ` GLUE ${p.glue.part}↔slab${p.glue.mateSlab}` : ''}`).join(' | '));
+  const plainPlan = packPieces([{ label: '500-30 Seat', l: 30, w: 26, qty: 5 }, { label: '500-30 Back', l: 30, w: 20, qty: 2 }], 82, 36, { glue: false });
+  console.log(` without glue: ${plainPlan.sheets.length} slabs`);
+  for (const s of plan.sheets) console.log(`  slab ${s.index} scrap ${s.scrapSqIn} sq in, remnants ${JSON.stringify(s.remnants)}`);
+}

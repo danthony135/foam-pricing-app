@@ -78,7 +78,7 @@ export default function FoamOrderDetail() {
                   <tr key={r.foamId} className="border-b">
                     <td className="p-2 font-semibold">{r.grade}</td><td className="p-2 text-right">{r.pieceCount}</td><td className="p-2 text-right">{r.netBoardFeet}</td><td className="p-2 text-right font-bold">{r.boardFeet}</td>
                     <td className="p-2 text-right">{r.onHand}</td><td className={`p-2 text-right ${r.shortfall > 0 ? 'font-bold text-red-600' : ''}`}>{r.shortfall}</td>
-                    <td className="p-2 text-right">{plan[r.foamId]?.sheets?.length ?? 0} × {r.sheetLengthIn}"×{r.sheetWidthIn}" ({Math.round((plan[r.foamId]?.utilization ?? 0) * 100)}%)</td>
+                    <td className="p-2 text-right">{plan[r.foamId]?.sheets?.length ?? 0} × {r.sheetLengthIn}"×{r.sheetWidthIn}" ({Math.round((plan[r.foamId]?.utilization ?? 0) * 100)}%){plan[r.foamId]?.gluedPieces ? ` · ${plan[r.foamId].gluedPieces} glue-up${plan[r.foamId].gluedPieces > 1 ? 's' : ''}` : ''}{plan[r.foamId]?.scrapSqIn ? ` · scrap ${Math.round(plan[r.foamId].scrapSqIn * (r.thicknessIn ?? 1) / 144 * 10) / 10} BF` : ''}</td>
                     <td className="p-2 text-right">${r.cost.toFixed(0)}</td>
                   </tr>
                 ))}

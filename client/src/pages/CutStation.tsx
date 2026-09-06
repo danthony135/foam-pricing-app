@@ -269,6 +269,15 @@ function SlabView({ orderId }: { orderId: number }) {
             </div>
             <aside className="flex w-80 shrink-0 flex-col gap-2 overflow-auto">
               <div className="text-xs uppercase tracking-wide text-slate-400">On this slab, by production order</div>
+              {(cur.sheet.pieces as PlacedPiece[]).some((p) => p.glue) && (
+                <div className="rounded-md border border-red-500/60 bg-red-950/40 p-2 text-sm">
+                  <div className="font-bold text-red-300">Glue-ups on this slab</div>
+                  {(cur.sheet.pieces as PlacedPiece[]).filter((p) => p.glue).map((p, k) => (
+                    <div key={k}>{p.label} — part {p.glue!.part} of {p.glue!.wholeL}×{p.glue!.wholeW}{p.glue!.mateSlab ? `, mate on slab ${p.glue!.mateSlab}` : ''}</div>
+                  ))}
+                  <div className="mt-1 text-xs text-red-200/80">One seam only. Glue the two parts along the dashed edge before wrapping.</div>
+                </div>
+              )}
               {moGroups.map((g) => (
                 <div key={g.key} className="rounded-md bg-slate-900 p-2" style={{ borderLeft: `6px solid ${colors.get(g.key) ?? '#f97316'}` }}>
                   <div className="flex items-baseline justify-between">
@@ -283,6 +292,9 @@ function SlabView({ orderId }: { orderId: number }) {
                   ))}
                 </div>
               ))}
+              {cur.sheet.remnants?.length ? (
+                <div className="rounded-md bg-slate-900 p-2 text-xs text-slate-400">Scrap left: {Math.round((cur.sheet.scrapSqIn ?? 0) / 144 * 10) / 10} sq ft · usable {cur.sheet.remnants.map((m: any) => `${m.w}×${m.h}`).join(', ')}</div>
+              ) : null}
               <button onClick={() => setShowList((v) => !v)} className="mt-auto rounded-md bg-slate-900 px-3 py-2 text-left text-xs text-slate-400 hover:text-white">{showList ? 'Hide' : 'Show'} whole list ({(o?.lines ?? []).length} orders)</button>
               {showList && (
                 <div className="max-h-48 overflow-auto rounded-md bg-slate-900 p-2 text-xs text-slate-300">

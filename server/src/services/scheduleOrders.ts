@@ -7,6 +7,7 @@
 import { prisma } from '../index';
 import { odoo } from './odoo';
 import { buildCutPlan, buildRequirements, type OrderLine } from './foamRequirements';
+import { logScrapForOrder } from './scrap';
 
 const OPEN_STATES = ['confirmed', 'progress'];
 
@@ -119,5 +120,7 @@ export async function saveProgress(orderId: number, done: string[]) {
   const total = Object.values(plan).reduce((a, p) => a + (p.sheets?.length ?? 0), 0);
   const uniq = [...new Set(done)];
   const status = total > 0 && uniq.length >= total ? 'cut' : o.status === 'cut' ? 'optimized' : o.status;
-  return prisma.foamOrder.update({ where: { id: orderId }, data: { cutProgress: { done: uniq, updatedAt: new Date().toISOString() }, status } });
+  const updated = await prisma.foamOrder.update({ where: { id: orderId }, data: { cutProgress: { done: uniq, updatedAt: new Date().toISOString() }, status } });
+  if (status === 'cut') await logScrapForOrder(orderId).catch((e) => console.error('[scrap] log failed', e));
+  return updated;
 }

@@ -10,6 +10,7 @@ import SkuDetail from './pages/SkuDetail';
 import FoamOrders from './pages/FoamOrders';
 import FoamOrderDetail from './pages/FoamOrderDetail';
 import CutStation from './pages/CutStation';
+import Scrap from './pages/Scrap';
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="/foams" element={<FoamLibrary />} />
           <Route path="/dacrons" element={<DacronLibrary />} />
           <Route path="/inventory" element={<Inventory />} />
+          <Route path="/scrap" element={<Scrap />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         <Route path="/cut-station" element={<CutStation />} />

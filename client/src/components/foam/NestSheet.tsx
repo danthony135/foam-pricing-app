@@ -16,11 +16,14 @@ export interface PlacedPiece {
   rot?: number;
   poly?: [number, number][];
   mo?: string;
+  glue?: { group: string; part: 'A' | 'B'; seam: [number, number, number, number]; mateSlab?: number; wholeL: number; wholeW: number };
 }
 export interface SheetData {
   index: number;
   pieces: PlacedPiece[];
   utilization: number;
+  scrapSqIn?: number;
+  remnants?: { x: number; y: number; w: number; h: number }[];
 }
 
 /** 24 well-separated colours (golden-angle hues, alternating lightness). */
@@ -71,6 +74,12 @@ export function NestSheet({
         <rect x={0} y={0} width={length} height={width} fill="#fdf6e3" stroke="#333" strokeWidth={0.4} />
         {Array.from({ length: Math.floor(length / 6) }, (_, i) => <line key={`gx${i}`} x1={(i + 1) * 6} y1={0} x2={(i + 1) * 6} y2={width} stroke="#e5d9b6" strokeWidth={0.15} />)}
         {Array.from({ length: Math.floor(width / 6) }, (_, i) => <line key={`gy${i}`} x1={0} y1={(i + 1) * 6} x2={length} y2={(i + 1) * 6} stroke="#e5d9b6" strokeWidth={0.15} />)}
+        {(sheet.remnants ?? []).map((m, i) => (
+          <g key={`rem${i}`}>
+            <rect x={m.x} y={m.y} width={m.w} height={m.h} fill="none" stroke="#9a8f6a" strokeWidth={0.2} strokeDasharray="0.8 0.6" />
+            <text x={m.x + m.w / 2} y={m.y + m.h / 2 + 0.6} textAnchor="middle" fontSize={Math.max(1.2, Math.min(m.w, m.h) / 5)} fill="#9a8f6a" transform={rotate ? `rotate(-90 ${m.x + m.w / 2} ${m.y + m.h / 2})` : undefined}>scrap {m.w}×{m.h}</text>
+          </g>
+        ))}
         {sheet.pieces.map((p, i) => {
           const fill = colorOf(p);
           const fontSize = Math.max(1.5, Math.min(p.w, p.h) / 4.8);
@@ -86,7 +95,9 @@ export function NestSheet({
               ) : (
                 <rect x={p.x} y={p.y} width={p.w} height={p.h} fill={fill} fillOpacity={0.45} stroke={fill} strokeWidth={0.4} />
               )}
+              {p.glue && <line x1={p.glue.seam[0]} y1={p.glue.seam[1]} x2={p.glue.seam[2]} y2={p.glue.seam[3]} stroke="#111" strokeWidth={0.9} strokeDasharray="1.2 0.8" strokeLinecap="round" />}
               <g transform={textTransform}>
+                {p.glue && <text x={cx} y={cy - fontSize * 1.5} textAnchor="middle" fontSize={fontSize * 0.7} fontWeight={800} fill="#b91c1c">GLUE {p.glue.part}{p.glue.mateSlab ? ` ↔ slab ${p.glue.mateSlab}` : ''} · {p.glue.wholeL}×{p.glue.wholeW}</text>}
                 <text x={cx} y={cy - fontSize * 0.55} textAnchor="middle" fontSize={fontSize} fontWeight={800} fill="#111">{code}</text>
                 {mo && <text x={cx} y={cy + fontSize * 0.45} textAnchor="middle" fontSize={fontSize * 0.9} fontWeight={800} fill="#000">{mo}</text>}
                 <text x={cx} y={cy + fontSize * (mo ? 1.2 : 0.35)} textAnchor="middle" fontSize={fontSize * 0.62} fill="#222">{rest.join(' ')}</text>

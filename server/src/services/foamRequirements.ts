@@ -85,14 +85,34 @@ export async function buildRequirements(lines: OrderLine[]): Promise<Requirement
   return out;
 }
 
-export function buildCutPlan(reqs: Requirement[]): Record<number, CutPlan> {
+/** A piece (or several of one kind) that was cut from a remnant instead of a slab. */
+export interface RemnantCut {
+  label: string;
+  mo?: string;
+  qty: number;
+  remnantId: number;
+  at: string;
+}
+
+/**
+ * Nest each foam's pieces onto slabs. Pieces already cut from remnants are
+ * taken out first (matched by label + MO) so the slab plan only shows what is
+ * still to be cut from full stock.
+ */
+export function buildCutPlan(reqs: Requirement[], remnantCuts: RemnantCut[] = []): Record<number, CutPlan> {
   const plan: Record<number, CutPlan> = {};
+  const left = new Map<string, number>();
+  for (const c of remnantCuts) { const k = `${c.label}|${c.mo ?? ''}`; left.set(k, (left.get(k) ?? 0) + c.qty); }
   for (const r of reqs) {
-    plan[r.foamId] = packPieces(
-      r.pieces.map((p) => ({ label: p.label, l: p.l, w: p.w, qty: p.qty, poly: p.poly, mo: p.mo })),
-      r.sheetLengthIn,
-      r.sheetWidthIn
-    );
+    const pieces = r.pieces
+      .map((p) => {
+        const k = `${p.label}|${p.mo ?? ''}`;
+        const take = Math.min(p.qty, left.get(k) ?? 0);
+        if (take) left.set(k, (left.get(k) ?? 0) - take);
+        return { label: p.label, l: p.l, w: p.w, qty: p.qty - take, poly: p.poly, mo: p.mo };
+      })
+      .filter((p) => p.qty > 0);
+    plan[r.foamId] = packPieces(pieces, r.sheetLengthIn, r.sheetWidthIn);
   }
   return plan;
 }

@@ -11,6 +11,7 @@ import FoamOrders from './pages/FoamOrders';
 import FoamOrderDetail from './pages/FoamOrderDetail';
 import CutStation from './pages/CutStation';
 import Scrap from './pages/Scrap';
+import Remnants from './pages/Remnants';
 
 export default function App() {
   return (
@@ -26,6 +27,8 @@ export default function App() {
           <Route path="/dacrons" element={<DacronLibrary />} />
           <Route path="/inventory" element={<Inventory />} />
           <Route path="/scrap" element={<Scrap />} />
+          <Route path="/remnants" element={<Remnants />} />
+          <Route path="/remnants/:id" element={<Remnants />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
         <Route path="/cut-station" element={<CutStation />} />

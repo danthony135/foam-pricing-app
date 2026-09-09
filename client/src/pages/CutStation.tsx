@@ -57,6 +57,7 @@ function ListPicker() {
           <h1 className="text-3xl font-black">Which production list are you working from?</h1>
         </div>
         <div className="flex items-center gap-4 text-sm text-slate-400">
+          <Link to="/remnants" className="rounded-lg bg-emerald-700 px-4 py-2 font-semibold text-white hover:bg-emerald-600">Remnants — cut from leftovers</Link>
           <button onClick={load} className="rounded-lg bg-slate-800 px-4 py-2 font-semibold hover:bg-slate-700">Refresh</button>
           <Link to="/" className="hover:text-white">Office view</Link>
         </div>
@@ -229,6 +230,7 @@ function SlabView({ orderId }: { orderId: number }) {
       <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-2">
         <div className="flex items-center gap-4">
           <Link to="/cut-station" className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold hover:bg-slate-700">◀ Lists</Link>
+          <Link to="/remnants" className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-semibold text-emerald-300 hover:bg-slate-700">Remnants</Link>
           <div>
             <div className="text-xs uppercase tracking-widest text-slate-400">Production list</div>
             <div className="text-2xl font-black">{o?.name ?? '…'}</div>
@@ -293,7 +295,15 @@ function SlabView({ orderId }: { orderId: number }) {
                 </div>
               ))}
               {cur.sheet.remnants?.length ? (
-                <div className="rounded-md bg-slate-900 p-2 text-xs text-slate-400">Scrap left: {Math.round((cur.sheet.scrapSqIn ?? 0) / 144 * 10) / 10} sq ft · usable {cur.sheet.remnants.map((m: any) => `${m.w}×${m.h}`).join(', ')}</div>
+                <div className="rounded-md bg-slate-900 p-2 text-xs text-slate-400">
+                  Scrap left: {Math.round((cur.sheet.scrapSqIn ?? 0) / 144 * 10) / 10} sq ft · usable {cur.sheet.remnants.map((m: any) => `${m.w}×${m.h}`).join(', ')}
+                  <div className="mt-1 text-emerald-400">{done.has(cur.key) ? 'Saved to Remnants — keep these on the rack.' : 'Saved to Remnants when you mark this slab cut.'}</div>
+                </div>
+              ) : null}
+              {(o?.remnantCuts as any[] | undefined)?.length ? (
+                <div className="rounded-md border border-emerald-700/60 bg-emerald-950/40 p-2 text-xs text-emerald-200">
+                  Cut from remnants (not on these slabs): {(o.remnantCuts as any[]).map((c) => `${c.qty}× ${c.label}${c.mo ? ` (${moLabel(c.mo)})` : ''} from R-${c.remnantId}`).join(' · ')}
+                </div>
               ) : null}
               <button onClick={() => setShowList((v) => !v)} className="mt-auto rounded-md bg-slate-900 px-3 py-2 text-left text-xs text-slate-400 hover:text-white">{showList ? 'Hide' : 'Show'} whole list ({(o?.lines ?? []).length} orders)</button>
               {showList && (

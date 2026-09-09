@@ -20,6 +20,16 @@ What it does:
   slabs per thickness; drafts an RFQ to the foam vendor for shortfall.
 - Cut Station: the operator picks their production list, then works slab by
   slab from a to-scale picture (cardboard templates), ticking slabs off.
+- Remnants (`services/remnants.ts`, `/remnants`): ticking a slab off shelves
+  its usable free rectangles (≥ 6" sides, ≥ 1 sq ft) as `Remnant` rows; other
+  leftovers are scanned (photo → outline via `traceImage`, scaled by one tape
+  measurement of the longest side) or typed in. Matching nests the pieces still
+  to cut on open lists onto the remnant's real outline (`packPieces` with
+  `stockPoly` + `maxSheets: 1`, no glue) and lists every pattern of that foam
+  that fits. Claiming records `FoamOrder.remnantCuts`, re-nests only the
+  UNTICKED slabs (ticked ones are kept verbatim and renumbered first; shelved
+  remnants follow the renumbering), marks the remnant used and shelves its own
+  leftovers. Thickness is never measured — the operator picks the foam.
 
 ## Project Structure
 - npm workspaces: `server/` (Express + TypeScript + Prisma/SQLite) and
@@ -28,7 +38,7 @@ What it does:
   schedules/BOM push/RFQ · `cutOptimizer.ts` slab nesting ·
   `foamRequirements.ts` requirement + plan per order.
 - Routes: `/api/skus`, `/api/odoo`, `/api/foam-orders`, `/api/foams`,
-  `/api/dacrons`, `/api/inventory`.
+  `/api/dacrons`, `/api/inventory`, `/api/scrap`, `/api/remnants`.
 
 ## Commands
 - `npm run dev` — server (3001) + client (5173)

@@ -27,6 +27,7 @@ model Foam {
   updatedAt        DateTime               @updatedAt
   inventory        FoamInventory?
   pieces           FoamPiece[]
+  remnants         Remnant[]
 }
 
 model Dacron {
@@ -108,6 +109,7 @@ model FoamOrder {
   lines        Json     // [{skuId, code, name, qty, moName?, moId?}]
   requirements Json?    // per foam: pieces, boardFeet, withWaste, onHand, shortfall
   cutPlan      Json?    // per foam: sheets[] with placed rectangles
+  remnantCuts  Json?    // pieces cut from remnants instead of slabs: [{label, mo?, qty, remnantId, at}]
   odooPoId     Int?
   odooPoName   String?
   notes        String?
@@ -134,6 +136,35 @@ model ScrapLog {
 
   @@unique([foamOrderId, foamId])
   @@index([foamId, createdAt])
+}
+
+// A usable leftover piece of slab foam. Created automatically when a slab is
+// ticked off on the cut station (its largest free rectangles), by scanning a
+// photo of a remnant, or typed in. Matching nests open-list pieces onto it.
+model Remnant {
+  id             Int      @id @default(autoincrement())
+  foamId         Int
+  foam           Foam     @relation(fields: [foamId], references: [id], onDelete: Cascade)
+  source         String   @default("cut") // cut | scanned | manual
+  status         String   @default("available") // available | used | discarded
+  lengthIn       Float    // bbox length (x)
+  widthIn        Float    // bbox width (y)
+  shapeType      String   @default("rect") // rect | polygon
+  shape          Json?    // outline [[x,y],…] inches, y-down, normalized to (0,0)
+  areaSqIn       Float
+  foamOrderId    Int?     // list whose slab it came from
+  scheduleNumber String?
+  slabIndex      Int?
+  parentId       Int?     // remnant this was left over from
+  usedOrderId    Int?
+  usedFor        Json?    // [{label, mo?, qty}] cut from it
+  usedAt         DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([foamId, status])
+  @@index([foamOrderId, foamId, slabIndex])
 }
 
 model AppSetting {

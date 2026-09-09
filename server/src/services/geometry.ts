@@ -115,8 +115,12 @@ export interface Mask {
   cells: Int32Array; // packed (y*w+x) of filled cells
 }
 
-/** Scanline-fill a polygon into a cell mask, then dilate by `pad` cells (kerf / template slop). */
-export function rasterize(p: Poly, res: number, pad = 1): Mask {
+/**
+ * Scanline-fill a polygon into a cell mask, then dilate by `pad` cells (kerf /
+ * template slop). `dilate = false` keeps the padded frame but skips the
+ * dilation, so body and ring can be told apart in the same coordinates.
+ */
+export function rasterize(p: Poly, res: number, pad = 1, dilate = true): Mask {
   const b = bbox(p);
   const w = Math.ceil(b.w / res) + pad * 2 + 1;
   const h = Math.ceil(b.h / res) + pad * 2 + 1;
@@ -137,7 +141,7 @@ export function rasterize(p: Poly, res: number, pad = 1): Mask {
       for (let cx = x0; cx <= x1; cx++) grid[cy * w + cx] = 1;
     }
   }
-  if (pad > 0) {
+  if (pad > 0 && dilate) {
     const d = new Uint8Array(grid);
     for (let cy = 0; cy < h; cy++)
       for (let cx = 0; cx < w; cx++) {

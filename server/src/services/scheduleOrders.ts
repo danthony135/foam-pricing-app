@@ -8,6 +8,7 @@ import { prisma } from '../index';
 import { odoo } from './odoo';
 import { buildCutPlan, buildRequirements, type OrderLine } from './foamRequirements';
 import { logScrapForOrder } from './scrap';
+import { syncCutRemnants } from './remnants';
 
 const OPEN_STATES = ['confirmed', 'progress'];
 
@@ -95,9 +96,9 @@ export async function upsertScheduleOrder(scheduleNumber: string) {
       return { skuId: s.id, code: s.code, name: m.product_id[1], qty: m.product_qty, moId: m.id, moName: m.name };
     });
   const unmapped = mos.filter((m) => !skuByTmpl.has(m.product_tmpl_id[0])).map((m) => `${m.name} ${m.product_id[1]}`);
-  const requirements = await buildRequirements(lines);
-  const cutPlan = buildCutPlan(requirements);
   const existing = await prisma.foamOrder.findUnique({ where: { scheduleNumber } });
+  const requirements = await buildRequirements(lines);
+  const cutPlan = buildCutPlan(requirements, ((existing?.remnantCuts as any[]) ?? []) as any);
   const data = {
     name: `List ${scheduleNumber}`,
     source: 'schedule',
@@ -122,5 +123,6 @@ export async function saveProgress(orderId: number, done: string[]) {
   const status = total > 0 && uniq.length >= total ? 'cut' : o.status === 'cut' ? 'optimized' : o.status;
   const updated = await prisma.foamOrder.update({ where: { id: orderId }, data: { cutProgress: { done: uniq, updatedAt: new Date().toISOString() }, status } });
   if (status === 'cut') await logScrapForOrder(orderId).catch((e) => console.error('[scrap] log failed', e));
+  await syncCutRemnants(orderId).catch((e) => console.error('[remnants] sync failed', e));
   return updated;
 }

@@ -17,6 +17,11 @@
  *
  * Scrap: every slab reports its scrap area and its largest free rectangles
  * (usable remnants), so waste can be tracked per slab type.
+ *
+ * Remnants: `opts.stockPoly` packs onto an irregular piece of stock (a remnant
+ * outline) instead of a full rectangular slab — cells outside the outline are
+ * blocked before nesting — and `opts.maxSheets` caps how many sheets may be
+ * opened (1 for "what fits on this remnant"); the rest come back as unplaced.
  */
 import { area, bbox, isValid, normalize, rasterize, rectPoly, rotate, round, translate, type Poly } from './geometry';
 
@@ -92,6 +97,7 @@ interface Variant {
   poly: Poly;
   mask: ReturnType<typeof rasterize>; // dilated by PAD: used to TEST a placement (keeps the kerf gap)
   body: ReturnType<typeof rasterize>; // undilated: what gets MARKED once placed
+  isBody: Uint8Array; // per mask cell: 1 = part of the piece itself, 0 = kerf ring
   w: number;
   h: number;
 }
@@ -103,10 +109,26 @@ class SheetGrid {
   gh: number;
   xs = new Set<number>([0]);
   ys = new Set<number>([0]);
-  constructor(public L: number, public W: number) {
+  blocked = 0; // cells outside the stock outline
+  constructor(public L: number, public W: number, stock?: Poly) {
     this.gw = Math.ceil(L / RES);
     this.gh = Math.ceil(W / RES);
     this.grid = new Uint8Array(this.gw * this.gh);
+    if (stock) {
+      // Block everything outside the outline with value 2: a piece's body may not
+      // cover it, but its kerf ring may (like the ring hanging off a slab edge),
+      // so pieces can sit right on the remnant's edge.
+      const body = rasterize(normalize(stock), RES, 0);
+      const inside = new Uint8Array(body.w * body.h);
+      for (let i = 0; i < body.cells.length; i++) inside[body.cells[i]] = 1;
+      const ok = (x: number, y: number) => x >= 0 && y >= 0 && x < body.w && y < body.h && inside[y * body.w + x] === 1;
+      for (let y = 0; y < this.gh; y++)
+        for (let x = 0; x < this.gw; x++) {
+          if (!ok(x, y)) { this.grid[y * this.gw + x] = 2; this.blocked++; }
+        }
+      // Candidate rows/cols along the outline's vertices help pieces hug angled edges.
+      for (const [px, py] of normalize(stock)) { this.xs.add(Math.ceil(px / RES)); this.ys.add(Math.ceil(py / RES)); }
+    }
   }
   fits(v: Variant, cx: number, cy: number): boolean {
     if (cx < 0 || cy < 0) return false;
@@ -117,7 +139,8 @@ class SheetGrid {
       const c = cells[i];
       const px = ox + (c % w), py = oy + Math.floor(c / w);
       if (px < 0 || py < 0 || px >= this.gw || py >= this.gh) continue; // ring may hang off the slab edge
-      if (this.grid[py * this.gw + px]) return false;
+      const g = this.grid[py * this.gw + px];
+      if (g === 1 || (g === 2 && v.isBody[c])) return false; // ring may overlap the stock boundary, body may not
     }
     return true;
   }
@@ -187,13 +210,25 @@ function variants(it: Item): Variant[] {
     const key = `${round(b.w, 2)}x${round(b.h, 2)}:${rot % 180}`;
     if (!it.shaped && seen.has(key)) continue;
     seen.add(key);
-    out.push({ rot, poly, mask: rasterize(poly, RES, PAD), body: rasterize(poly, RES, 0), w: b.w, h: b.h });
+    const mask = rasterize(poly, RES, PAD);
+    const bodyInFrame = rasterize(poly, RES, PAD, false);
+    const isBody = new Uint8Array(mask.w * mask.h);
+    for (let i = 0; i < bodyInFrame.cells.length; i++) isBody[bodyInFrame.cells[i]] = 1;
+    out.push({ rot, poly, mask, body: rasterize(poly, RES, 0), isBody, w: b.w, h: b.h });
   }
   return out;
 }
 
-export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: number, opts: { glue?: boolean } = {}): CutPlan {
+export interface PackOptions {
+  glue?: boolean;
+  stockPoly?: Poly; // irregular stock outline (inches, y-down); sheetLength/Width should be its bbox
+  maxSheets?: number; // cap on sheets opened (default unlimited)
+}
+
+export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: number, opts: PackOptions = {}): CutPlan {
   const allowGlue = opts.glue !== false;
+  const stock = isValid(opts.stockPoly) ? normalize(opts.stockPoly as Poly) : undefined;
+  const maxSheets = opts.maxSheets ?? Infinity;
   let nextId = 1;
   const items: Item[] = [];
   for (const p of pieces) {
@@ -317,25 +352,28 @@ export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: 
 
   const openSheet = () => {
     sheets.push({ index: sheets.length + 1, pieces: [], usedArea: 0, utilization: 0, scrapSqIn: 0, remnants: [] });
-    grids.push(new SheetGrid(sheetLength, sheetWidth));
+    grids.push(new SheetGrid(sheetLength, sheetWidth, stock));
     return sheets.length - 1;
   };
   const allRange = () => sheets.map((_, i) => i);
 
   for (const it of items) {
     const b = bbox(it.poly);
+    const fail = () => unplaced.push({ label: it.label, l: round(b.w, 2), w: round(b.h, 2) });
     if (!((b.w <= sheetLength && b.h <= sheetWidth) || (b.h <= sheetLength && b.w <= sheetWidth))) {
       // Too big for a slab even whole — a glue-up is its only chance.
       if (!placeSplit(it, allRange())) {
+        if (sheets.length >= maxSheets) { fail(); continue; }
         openSheet();
-        if (!placeSplit(it, allRange())) { sheets.pop(); grids.pop(); unplaced.push({ label: it.label, l: round(b.w, 2), w: round(b.h, 2) }); }
+        if (!placeSplit(it, allRange())) { sheets.pop(); grids.pop(); fail(); }
       }
       continue;
     }
     if (placeWhole(it, allRange())) continue;
     if (placeSplit(it, allRange())) continue;
+    if (sheets.length >= maxSheets) { fail(); continue; }
     const i = openSheet();
-    if (!placeWhole(it, [i])) unplaced.push({ label: it.label, l: round(b.w, 2), w: round(b.h, 2) });
+    if (!placeWhole(it, [i])) fail();
   }
 
   // Dissolve the last slab into scrap on the earlier ones (whole first, then one glue seam).
@@ -360,7 +398,8 @@ export function packPieces(pieces: CutPiece[], sheetLength: number, sheetWidth: 
     break;
   }
 
-  const sheetArea = sheetLength * sheetWidth;
+  // Usable stock area: the whole rectangle, or the remnant outline's area.
+  const sheetArea = stock ? area(stock) : sheetLength * sheetWidth;
   let scrapTotal = 0;
   sheets.forEach((s, i) => {
     s.utilization = sheetArea ? s.usedArea / sheetArea : 0;

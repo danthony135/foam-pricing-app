@@ -74,7 +74,7 @@ router.post('/:id/optimize', async (req, res, next) => {
     if (!o) return res.status(404).json({ error: 'Order not found' });
     if (o.source === 'schedule' && o.scheduleNumber) return res.json((await upsertScheduleOrder(o.scheduleNumber)).order);
     const requirements = await buildRequirements(o.lines as any);
-    const cutPlan = buildCutPlan(requirements);
+    const cutPlan = buildCutPlan(requirements, ((o.remnantCuts as any[]) ?? []) as any);
     res.json(await prisma.foamOrder.update({ where: { id: o.id }, data: { requirements: requirements as any, cutPlan: cutPlan as any, status: o.status === 'draft' ? 'optimized' : o.status } }));
   } catch (err) { next(err); }
 });

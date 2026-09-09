@@ -10,6 +10,7 @@ import skuRoutes from './routes/skus';
 import odooRoutes from './routes/odoo';
 import foamOrderRoutes from './routes/foamOrders';
 import scrapRoutes from './routes/scrap';
+import remnantRoutes from './routes/remnants';
 import { startOdooSyncLoop } from './services/odooSync';
 
 export const prisma = new PrismaClient();
@@ -31,6 +32,7 @@ app.use('/api/skus', skuRoutes);
 app.use('/api/odoo', odooRoutes);
 app.use('/api/foam-orders', foamOrderRoutes);
 app.use('/api/scrap', scrapRoutes);
+app.use('/api/remnants', remnantRoutes);
 
 // Serve the client build in production
 if (process.env.NODE_ENV === 'production') {

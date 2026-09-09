@@ -46,6 +46,16 @@ export const api = {
   // Scrap
   getScrap: (days = 90) => request<any>(`/scrap?days=${days}`),
 
+  // Remnants (leftover foam on the rack)
+  getRemnants: (opts: { foamId?: number; status?: string } = {}) => request<any[]>(`/remnants?${new URLSearchParams(Object.fromEntries(Object.entries(opts).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])))}`),
+  getRemnant: (id: number) => request<any>(`/remnants/${id}`),
+  createRemnant: (data: { foamId: number; lengthIn?: number; widthIn?: number; shape?: [number, number][] | null; notes?: string }) => request<any>('/remnants', { method: 'POST', body: JSON.stringify(data) }),
+  updateRemnant: (id: number, data: any) => request<any>(`/remnants/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteRemnant: (id: number) => request<any>(`/remnants/${id}`, { method: 'DELETE' }),
+  matchRemnant: (remnantId: number) => request<any>('/remnants/match', { method: 'POST', body: JSON.stringify({ remnantId }) }),
+  previewRemnant: (id: number, picks: any[], extra: any[]) => request<any>(`/remnants/${id}/preview`, { method: 'POST', body: JSON.stringify({ picks, extra }) }),
+  claimRemnant: (id: number, picks: any[], extra: any[]) => request<any>(`/remnants/${id}/claim`, { method: 'POST', body: JSON.stringify({ picks, extra }) }),
+
   // Foams (slab stock)
   getFoams: () => request<any[]>('/foams'),
   getFoam: (id: number) => request<any>(`/foams/${id}`),

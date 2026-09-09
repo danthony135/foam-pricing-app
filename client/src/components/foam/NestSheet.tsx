@@ -58,22 +58,34 @@ function centroid(poly: [number, number][]): [number, number] {
 }
 
 export function NestSheet({
-  sheet, length, width, colorOf, big = false, rotate = false, showMo = true,
+  sheet, length, width, colorOf, big = false, rotate = false, showMo = true, stockPoly, caption,
 }: {
   sheet: SheetData; length: number; width: number;
   colorOf: (p: PlacedPiece) => string;
   big?: boolean; rotate?: boolean; showMo?: boolean;
+  /** Irregular stock (a remnant outline) instead of a full rectangular slab. */
+  stockPoly?: [number, number][] | null;
+  caption?: string;
 }) {
   const pad = 2;
+  const stockPts = stockPoly && stockPoly.length >= 3 ? stockPoly.map(([x, y]) => `${x},${y}`).join(' ') : null;
+  const clipId = `stock-${sheet.index}-${length}-${width}`;
   // Rotated: the viewBox is width × length and the slab group is turned 90° clockwise.
   const vb = rotate ? `-${pad} -${pad} ${width + pad * 2} ${length + pad * 2}` : `-${pad} -${pad} ${length + pad * 2} ${width + pad * 2}`;
   const groupTransform = rotate ? `translate(${width} 0) rotate(90)` : undefined;
   return (
     <svg viewBox={vb} className="w-full h-full rounded-lg border bg-white" style={big ? { maxHeight: '100%', maxWidth: '100%' } : { maxHeight: 360, height: 'auto' }} preserveAspectRatio="xMidYMid meet">
       <g transform={groupTransform}>
-        <rect x={0} y={0} width={length} height={width} fill="#fdf6e3" stroke="#333" strokeWidth={0.4} />
-        {Array.from({ length: Math.floor(length / 6) }, (_, i) => <line key={`gx${i}`} x1={(i + 1) * 6} y1={0} x2={(i + 1) * 6} y2={width} stroke="#e5d9b6" strokeWidth={0.15} />)}
-        {Array.from({ length: Math.floor(width / 6) }, (_, i) => <line key={`gy${i}`} x1={0} y1={(i + 1) * 6} x2={length} y2={(i + 1) * 6} stroke="#e5d9b6" strokeWidth={0.15} />)}
+        {stockPts && <defs><clipPath id={clipId}><polygon points={stockPts} /></clipPath></defs>}
+        {stockPts ? (
+          <polygon points={stockPts} fill="#fdf6e3" stroke="#333" strokeWidth={0.4} strokeLinejoin="round" />
+        ) : (
+          <rect x={0} y={0} width={length} height={width} fill="#fdf6e3" stroke="#333" strokeWidth={0.4} />
+        )}
+        <g clipPath={stockPts ? `url(#${clipId})` : undefined}>
+          {Array.from({ length: Math.floor(length / 6) }, (_, i) => <line key={`gx${i}`} x1={(i + 1) * 6} y1={0} x2={(i + 1) * 6} y2={width} stroke="#e5d9b6" strokeWidth={0.15} />)}
+          {Array.from({ length: Math.floor(width / 6) }, (_, i) => <line key={`gy${i}`} x1={0} y1={(i + 1) * 6} x2={length} y2={(i + 1) * 6} stroke="#e5d9b6" strokeWidth={0.15} />)}
+        </g>
         {(sheet.remnants ?? []).map((m, i) => (
           <g key={`rem${i}`}>
             <rect x={m.x} y={m.y} width={m.w} height={m.h} fill="none" stroke="#9a8f6a" strokeWidth={0.2} strokeDasharray="0.8 0.6" />
@@ -107,7 +119,7 @@ export function NestSheet({
           );
         })}
         <text x={length / 2} y={width + pad * 0.9} textAnchor="middle" fontSize={1.8} fill="#333" transform={rotate ? `rotate(-90 ${length / 2} ${width + pad * 0.9}) translate(0 ${-pad * 0.9 - 1})` : undefined}>
-          {length}" × {width}" slab · {Math.round(sheet.utilization * 100)}% used
+          {caption ?? `${length}" × ${width}" slab · ${Math.round(sheet.utilization * 100)}% used`}
         </text>
       </g>
     </svg>

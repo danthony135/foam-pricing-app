@@ -62,6 +62,8 @@ export interface Sheet {
   utilization: number;
   scrapSqIn: number;
   remnants: Remnant[]; // largest free rectangles, biggest first
+  /** Measured stock when this slab was re-nested to its real size (else the plan's nominal slab). */
+  stock?: { length: number; width: number; poly?: Poly; x?: number; y?: number };
 }
 export interface CutPlan {
   sheetLength: number;

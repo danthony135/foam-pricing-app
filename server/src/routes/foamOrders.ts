@@ -4,6 +4,7 @@ import { buildCutPlan, buildRequirements, type OrderLine } from '../services/foa
 import { createFoamRfq, fetchOpenMos } from '../services/odooSync';
 import { saveProgress, upsertScheduleOrder } from '../services/scheduleOrders';
 import { logScrapForOrder } from '../services/scrap';
+import { resizeSlab } from '../services/slabResize';
 
 const router = Router();
 
@@ -76,6 +77,14 @@ router.post('/:id/optimize', async (req, res, next) => {
     const requirements = await buildRequirements(o.lines as any);
     const cutPlan = buildCutPlan(requirements, ((o.remnantCuts as any[]) ?? []) as any);
     res.json(await prisma.foamOrder.update({ where: { id: o.id }, data: { requirements: requirements as any, cutPlan: cutPlan as any, status: o.status === 'draft' ? 'optimized' : o.status } }));
+  } catch (err) { next(err); }
+});
+
+/** Re-nest one slab to its measured size (camera or tape). Body: { foamId, slabIndex, lengthIn, widthIn, poly?, x?, y? } */
+router.post('/:id/slabs/resize', async (req, res, next) => {
+  try {
+    const b = req.body ?? {};
+    res.json(await resizeSlab(+req.params.id, Number(b.foamId), Number(b.slabIndex), { lengthIn: Number(b.lengthIn), widthIn: Number(b.widthIn), poly: b.poly ?? null, x: Number(b.x) || 0, y: Number(b.y) || 0 }));
   } catch (err) { next(err); }
 });
 

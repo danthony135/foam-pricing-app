@@ -46,6 +46,20 @@ export const api = {
   // Scrap
   getScrap: (days = 90) => request<any>(`/scrap?days=${days}`),
 
+  // Station: projector + overhead camera
+  getStation: () => request<any>('/station/state'),
+  setStationState: (data: any) => request<any>('/station/state', { method: 'PUT', body: JSON.stringify(data) }),
+  getCalibration: () => request<any>('/station/calibration'),
+  saveCalibration: (cal: any) => request<any>('/station/calibration', { method: 'PUT', body: JSON.stringify(cal) }),
+  saveStationPrefs: (p: any) => request<any>('/station/prefs', { method: 'PUT', body: JSON.stringify(p) }),
+  requestSnapshot: () => request<any>('/station/camera/request', { method: 'POST' }),
+  pollSnapshotRequest: () => request<any>('/station/camera/request'),
+  uploadSnapshot: (data: { id: number; jpeg: string; w: number; h: number }) => request<any>('/station/camera/snapshot', { method: 'POST', body: JSON.stringify(data) }),
+  getSnapshot: (after = 0) => request<any>(`/station/camera/snapshot?after=${after}`),
+  pingCameraAgent: () => request<any>('/station/camera/ping', { method: 'POST' }),
+  cameraAgentStatus: () => request<any>('/station/camera/agent'),
+  resizeSlab: (orderId: number, data: { foamId: number; slabIndex: number; lengthIn: number; widthIn: number; poly?: [number, number][] | null; x?: number; y?: number }) => request<any>(`/foam-orders/${orderId}/slabs/resize`, { method: 'POST', body: JSON.stringify(data) }),
+
   // Remnants (leftover foam on the rack)
   getRemnants: (opts: { foamId?: number; status?: string } = {}) => request<any[]>(`/remnants?${new URLSearchParams(Object.fromEntries(Object.entries(opts).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])))}`),
   getRemnant: (id: number) => request<any>(`/remnants/${id}`),

@@ -12,6 +12,8 @@ import FoamOrderDetail from './pages/FoamOrderDetail';
 import CutStation from './pages/CutStation';
 import Scrap from './pages/Scrap';
 import Remnants from './pages/Remnants';
+import Projector from './pages/Projector';
+import ProjectionSetup from './pages/ProjectionSetup';
 
 export default function App() {
   return (
@@ -30,9 +32,11 @@ export default function App() {
           <Route path="/remnants" element={<Remnants />} />
           <Route path="/remnants/:id" element={<Remnants />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/projection" element={<ProjectionSetup />} />
         </Route>
         <Route path="/cut-station" element={<CutStation />} />
         <Route path="/cut-station/:id" element={<CutStation />} />
+        <Route path="/projector" element={<Projector />} />
       </Routes>
     </BrowserRouter>
   );

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Box, Layers, Package, Settings, Tags, Scissors, Monitor, Recycle, Puzzle } from 'lucide-react';
+import { LayoutDashboard, Box, Layers, Package, Settings, Tags, Scissors, Monitor, Recycle, Puzzle, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { to: '/inventory', icon: Package, label: 'Inventory' },
   { to: '/remnants', icon: Puzzle, label: 'Remnants' },
   { to: '/scrap', icon: Recycle, label: 'Scrap by slab type' },
+  { to: '/settings/projection', icon: Video, label: 'Projector & camera' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

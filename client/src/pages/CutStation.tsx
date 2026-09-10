@@ -11,12 +11,19 @@
  * drawn with its long side across the screen (auto by screen shape, or use the
  * Rotate button). Progress is saved on the server so a TV, a tablet and the
  * office all agree. Keys: → / space next · ← prev · Enter mark cut · R rotate
- * · 1-9 jump to a foam thickness · 0 all foam.
+ * · 1-9 jump to a foam thickness · 0 all foam · P project on the table.
+ *
+ * Project: with the projector calibrated (Projector & camera page), the slab on
+ * screen is also drawn on the real slab through the table calibration for that
+ * foam's thickness. Measure: the overhead camera checks the slab's real size and
+ * the slab can be re-nested to it.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { NestSheet, makeColorMap, type PlacedPiece } from '@/components/foam/NestSheet';
+import { MeasureSlab } from '@/components/foam/MeasureSlab';
+import type { Calibration } from '@/lib/homography';
 
 const keyOf = (p: PlacedPiece) => p.mo ?? p.label.split(' ')[0];
 const moLabel = (k: string) => k.replace(/^WH\/MO\//, 'MO ');
@@ -114,6 +121,9 @@ function SlabView({ orderId }: { orderId: number }) {
   const [showList, setShowList] = useState(false);
   const [rotatePref, setRotatePref] = useState<'auto' | 'on' | 'off'>(() => { try { return (localStorage.getItem('cut-rotate') as any) || 'auto'; } catch { return 'auto'; } });
   const [portrait, setPortrait] = useState(window.innerHeight > window.innerWidth);
+  const [project, setProject] = useState<boolean>(() => { try { return localStorage.getItem('cut-project') === '1'; } catch { return false; } });
+  const [cal, setCal] = useState<Calibration | null>(null);
+  const [measuring, setMeasuring] = useState(false);
 
   useEffect(() => {
     const onResize = () => setPortrait(window.innerHeight > window.innerWidth);
@@ -136,7 +146,7 @@ function SlabView({ orderId }: { orderId: number }) {
       if (foamFilter && r.foamId !== foamFilter) continue;
       const plan = o.cutPlan?.[r.foamId];
       if (!plan) continue;
-      for (const s of plan.sheets) out.push({ key: `${r.foamId}-${s.index}`, grade: r.grade, foamId: r.foamId, sheet: s, length: plan.sheetLength, width: plan.sheetWidth, total: plan.sheets.length });
+      for (const s of plan.sheets) out.push({ key: `${r.foamId}-${s.index}`, grade: r.grade, foamId: r.foamId, thickness: r.thicknessIn ?? 0, sheet: s, length: s.stock?.length ?? plan.sheetLength, width: s.stock?.width ?? plan.sheetWidth, nominalLength: plan.sheetLength, nominalWidth: plan.sheetWidth, total: plan.sheets.length });
     }
     return out;
   }, [o, foamFilter]);
@@ -155,6 +165,20 @@ function SlabView({ orderId }: { orderId: number }) {
   }, [o]);
   const totalSlabs = useMemo(() => foams.reduce((a: number, f: any) => a + f.slabs, 0), [foams]);
   const cur = slabs[Math.min(i, Math.max(0, slabs.length - 1))];
+
+  // Projector: follow the slab on screen while Project is on; blank it when turned off / leaving.
+  useEffect(() => { api.getStation().then((s) => setCal(s.calibration)).catch(() => {}); }, []);
+  useEffect(() => {
+    if (!project || !cur) return;
+    api.setStationState({ mode: 'slab', orderId, slabKey: cur.key }).catch(() => {});
+  }, [project, cur?.key, orderId, o?.updatedAt]);
+  useEffect(() => () => { if (project) api.setStationState({ mode: 'idle' }).catch(() => {}); }, [project]);
+  const toggleProject = () => {
+    const next = !project;
+    setProject(next);
+    try { localStorage.setItem('cut-project', next ? '1' : '0'); } catch { /* ignore */ }
+    if (!next) api.setStationState({ mode: 'idle' }).catch(() => {});
+  };
 
   // Long side across the wider screen dimension unless the operator overrides.
   const slabLandscape = cur ? cur.length >= cur.width : true;
@@ -196,6 +220,7 @@ function SlabView({ orderId }: { orderId: number }) {
       if (e.key === 'ArrowLeft') setI((x) => Math.max(0, x - 1));
       if (e.key === 'Enter') markDone();
       if (e.key === 'r' || e.key === 'R') cycleRotate();
+      if (e.key === 'p' || e.key === 'P') toggleProject();
       const n = Number(e.key);
       if (n >= 1 && n <= 9 && foams[n - 1]) setFoamFilter(foams[n - 1].id);
       if (e.key === '0') setFoamFilter(null);
@@ -203,7 +228,7 @@ function SlabView({ orderId }: { orderId: number }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slabs.length, markDone, foams, rotatePref, rotate]);
+  }, [slabs.length, markDone, foams, rotatePref, rotate, project]);
 
   const refresh = async () => {
     setSaving(true);
@@ -250,7 +275,7 @@ function SlabView({ orderId }: { orderId: number }) {
         {cur && (
           <div className="text-right">
             <div className="text-3xl font-black">{cur.grade}</div>
-            <div className="text-sm text-slate-400">Slab {cur.sheet.index} of {cur.total} · {cur.length}" × {cur.width}" · {cur.sheet.pieces.length} pieces · {done.size}/{totalSlabs} slabs cut{saving ? ' · saving…' : ''}</div>
+            <div className="text-sm text-slate-400">Slab {cur.sheet.index} of {cur.total} · {cur.length}" × {cur.width}"{cur.sheet.stock ? <span className="text-amber-300"> measured</span> : ''} · {cur.sheet.pieces.length} pieces · {done.size}/{totalSlabs} slabs cut{saving ? ' · saving…' : ''}</div>
           </div>
         )}
       </header>
@@ -267,7 +292,7 @@ function SlabView({ orderId }: { orderId: number }) {
         {cur && (
           <>
             <div className={`flex min-h-0 min-w-0 flex-1 items-center justify-center rounded-xl ${done.has(cur.key) ? 'ring-4 ring-emerald-500' : ''}`}>
-              <NestSheet sheet={cur.sheet} length={cur.length} width={cur.width} colorOf={colorOf} big rotate={rotate} />
+              <NestSheet sheet={cur.sheet} length={cur.length} width={cur.width} colorOf={colorOf} big rotate={rotate} stockPoly={cur.sheet.stock?.poly ?? null} caption={cur.sheet.stock ? `measured ${cur.length}" × ${cur.width}" slab (nominal ${cur.nominalLength}×${cur.nominalWidth}) · ${Math.round(cur.sheet.utilization * 100)}% used` : undefined} />
             </div>
             <aside className="flex w-80 shrink-0 flex-col gap-2 overflow-auto">
               <div className="text-xs uppercase tracking-wide text-slate-400">On this slab, by production order</div>
@@ -324,10 +349,15 @@ function SlabView({ orderId }: { orderId: number }) {
           ))}
         </div>
         <button className="rounded-lg bg-slate-800 px-4 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-700" onClick={cycleRotate} title="R">{rotate ? '⟲ Rotate' : '⟳ Rotate'}{rotatePref === 'auto' ? ' (auto)' : ''}</button>
+        <button className={`rounded-lg px-4 py-4 text-sm font-bold ${project ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`} onClick={toggleProject} title="P — draw this slab on the table with the projector">{project ? '● Projecting' : '○ Project'}</button>
+        <button className="rounded-lg bg-slate-800 px-4 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-700" onClick={() => setMeasuring(true)} disabled={!cur || done.has(cur.key)} title="Check the slab's real size with the camera">📷 Measure slab</button>
         <button className="rounded-lg bg-slate-800 px-4 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-700" onClick={refresh} disabled={saving}>Refresh from Odoo</button>
         <button className={`rounded-lg px-8 py-4 text-xl font-black ${cur && done.has(cur.key) ? 'bg-emerald-800' : 'bg-emerald-600'} disabled:opacity-30`} onClick={markDone} disabled={!cur}>{cur && done.has(cur.key) ? '✓ Cut (undo)' : 'Mark slab cut ✓'}</button>
         <button className="rounded-lg bg-slate-800 px-6 py-4 text-xl font-bold disabled:opacity-30" onClick={() => setI((x) => Math.min(slabs.length - 1, x + 1))} disabled={i >= slabs.length - 1}>Next ▶</button>
       </footer>
+      {measuring && cur && (
+        <MeasureSlab cal={cal} thicknessIn={cur.thickness} nominal={{ length: cur.nominalLength, width: cur.nominalWidth }} orderId={orderId} foamId={cur.foamId} slabIndex={cur.sheet.index} grade={cur.grade} onClose={() => setMeasuring(false)} onApplied={() => load().catch((e) => setErr(e.message))} />
+      )}
     </div>
   );
 }

@@ -84,7 +84,7 @@ router.post('/:id/optimize', async (req, res, next) => {
 router.post('/:id/slabs/resize', async (req, res, next) => {
   try {
     const b = req.body ?? {};
-    res.json(await resizeSlab(+req.params.id, Number(b.foamId), Number(b.slabIndex), { lengthIn: Number(b.lengthIn), widthIn: Number(b.widthIn), poly: b.poly ?? null, x: Number(b.x) || 0, y: Number(b.y) || 0 }));
+    res.json(await resizeSlab(+req.params.id, Number(b.foamId), Number(b.slabIndex), { lengthIn: Number(b.lengthIn), widthIn: Number(b.widthIn), poly: b.poly ?? null, x: Number(b.x) || 0, y: Number(b.y) || 0, angleDeg: Number(b.angleDeg) || 0 }));
   } catch (err) { next(err); }
 });
 

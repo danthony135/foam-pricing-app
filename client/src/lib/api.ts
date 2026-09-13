@@ -58,7 +58,7 @@ export const api = {
   getSnapshot: (after = 0) => request<any>(`/station/camera/snapshot?after=${after}`),
   pingCameraAgent: () => request<any>('/station/camera/ping', { method: 'POST' }),
   cameraAgentStatus: () => request<any>('/station/camera/agent'),
-  resizeSlab: (orderId: number, data: { foamId: number; slabIndex: number; lengthIn: number; widthIn: number; poly?: [number, number][] | null; x?: number; y?: number }) => request<any>(`/foam-orders/${orderId}/slabs/resize`, { method: 'POST', body: JSON.stringify(data) }),
+  resizeSlab: (orderId: number, data: { foamId: number; slabIndex: number; lengthIn: number; widthIn: number; poly?: [number, number][] | null; x?: number; y?: number; angleDeg?: number }) => request<any>(`/foam-orders/${orderId}/slabs/resize`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Remnants (leftover foam on the rack)
   getRemnants: (opts: { foamId?: number; status?: string } = {}) => request<any[]>(`/remnants?${new URLSearchParams(Object.fromEntries(Object.entries(opts).filter(([, v]) => v !== undefined && v !== null).map(([k, v]) => [k, String(v)])))}`),

@@ -25,7 +25,7 @@ export interface SheetData {
   scrapSqIn?: number;
   remnants?: { x: number; y: number; w: number; h: number }[];
   /** Measured stock when the slab was re-nested to its real size. */
-  stock?: { length: number; width: number; poly?: [number, number][]; x?: number; y?: number };
+  stock?: { length: number; width: number; poly?: [number, number][]; x?: number; y?: number; angle?: number };
 }
 
 /** 24 well-separated colours (golden-angle hues, alternating lightness). */

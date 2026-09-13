@@ -102,6 +102,66 @@ export function normalize(p: Poly): Poly {
 }
 export function snap(v: number, step = 0.25) { return r(Math.round(v / step) * step); }
 
+/**
+ * Best-fit rectangle of an outline: the minimum-area rectangle around its
+ * convex hull (rotating calipers). Tells the real length × width of a slab
+ * or remnant no matter how crooked it is lying, plus the angle of its long
+ * side and where its origin corner sits. `angleDeg` is measured from the +x
+ * axis in a y-down frame, in (-90, 90]; `origin` is the corner where local x
+ * and y are both smallest, so `toLocal` is a pure rotation (no mirroring).
+ */
+export interface FitRect { length: number; width: number; angleDeg: number; origin: Pt; corners: [Pt, Pt, Pt, Pt]; area: number }
+
+export function convexHull(p: Poly): Poly {
+  const pts = p.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length < 3) return pts;
+  const cross = (o: Pt, a: Pt, b: Pt) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: Poly = [];
+  for (const q of pts) { while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], q) <= 0) lower.pop(); lower.push(q); }
+  const upper: Poly = [];
+  for (let i = pts.length - 1; i >= 0; i--) { const q = pts[i]; while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], q) <= 0) upper.pop(); upper.push(q); }
+  upper.pop(); lower.pop();
+  return lower.concat(upper);
+}
+
+export function minAreaRect(p: Poly): FitRect {
+  const hull = convexHull(p);
+  if (hull.length < 2) { const [x, y] = hull[0] ?? [0, 0]; return { length: 0, width: 0, angleDeg: 0, origin: [x, y], corners: [[x, y], [x, y], [x, y], [x, y]], area: 0 }; }
+  // Rectangle around the hull whose x-axis points along angle `a` (radians); v = u rotated +90° in y-down.
+  const frame = (a: number): FitRect => {
+    const ux = Math.cos(a), uy = Math.sin(a);
+    let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+    for (const [x, y] of hull) {
+      const u = x * ux + y * uy, v = -x * uy + y * ux;
+      if (u < minU) minU = u; if (u > maxU) maxU = u; if (v < minV) minV = v; if (v > maxV) maxV = v;
+    }
+    const at = (u: number, v: number): Pt => [u * ux - v * uy, u * uy + v * ux];
+    const L = maxU - minU, W = maxV - minV;
+    return { length: L, width: W, angleDeg: (a * 180) / Math.PI, origin: at(minU, minV), corners: [at(minU, minV), at(maxU, minV), at(maxU, maxV), at(minU, maxV)], area: L * W };
+  };
+  let best: FitRect | null = null;
+  const n = hull.length;
+  for (let i = 0; i < n; i++) {
+    const [x1, y1] = hull[i], [x2, y2] = hull[(i + 1) % n];
+    if (Math.hypot(x2 - x1, y2 - y1) < 1e-9) continue;
+    const f = frame(Math.atan2(y2 - y1, x2 - x1));
+    if (!best || f.area < best.area - 1e-9) best = f;
+  }
+  if (!best) best = frame(0);
+  // Same rectangle, re-described so the long side is the length and its angle lies in (-90, 90].
+  let a = best.angleDeg;
+  if (best.width > best.length) a -= 90;
+  while (a <= -90) a += 180;
+  while (a > 90) a -= 180;
+  return a === best.angleDeg ? best : frame((a * Math.PI) / 180);
+}
+
+/** Express points in the fitted rectangle's own frame (origin at its first corner, x along its long side). */
+export function toLocal(p: Poly, r: FitRect): Poly {
+  const a = (r.angleDeg * Math.PI) / 180, ux = Math.cos(a), uy = Math.sin(a);
+  return p.map(([x, y]) => { const dx = x - r.origin[0], dy = y - r.origin[1]; return [dx * ux + dy * uy, -dx * uy + dy * ux] as Pt; });
+}
+
 /** Douglas-Peucker. */
 export function simplify(p: Poly, tol: number): Poly {
   if (p.length < 4) return p;

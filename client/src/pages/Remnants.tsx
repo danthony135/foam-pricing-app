@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { bbox, normalize, traceImage, type Poly } from '@/lib/shapes';
+import { minAreaRect, normalize, toLocal, traceImage, type Poly } from '@/lib/shapes';
 import { NestSheet, PieceThumb, makeColorMap, type PlacedPiece } from '@/components/foam/NestSheet';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -186,14 +186,16 @@ function AddRemnant({ mode, foams, onClose, onSaved }: { mode: 'scan' | 'type'; 
     im.src = URL.createObjectURL(file);
   };
 
-  // Pixel outline → inches, scaled so the longest bbox side equals the tape measurement.
+  // Pixel outline → inches. The remnant may be lying crooked in the photo, so fit
+  // its best rectangle first: scale so that rectangle's long side equals the tape
+  // measurement, and square the outline up into the rectangle's own frame.
   const scaled = useMemo(() => {
     if (!tracePx || !Number(longest)) return null;
-    const b = bbox(tracePx);
-    const k = Number(longest) / Math.max(b.w, b.h);
-    const poly = normalize(tracePx.map(([x, y]) => [x * k, y * k] as [number, number]));
-    const bb = bbox(poly);
-    return { poly, l: Math.round(bb.w * 4) / 4, w: Math.round(bb.h * 4) / 4 };
+    const fit = minAreaRect(tracePx);
+    if (!(fit.length > 0)) return null;
+    const k = Number(longest) / fit.length;
+    const poly = normalize(toLocal(tracePx, fit).map(([x, y]) => [x * k, y * k] as [number, number]));
+    return { poly, l: Math.round(fit.length * k * 4) / 4, w: Math.round(fit.width * k * 4) / 4, angle: Math.round(fit.angleDeg) };
   }, [tracePx, longest]);
 
   const save = async () => {
@@ -244,7 +246,7 @@ function AddRemnant({ mode, foams, onClose, onSaved }: { mode: 'scan' | 'type'; 
                     <img src={img.src} alt="remnant" className="w-full rounded-lg" />
                     {tracePx && (
                       <svg viewBox={`0 0 ${traceDims.w} ${traceDims.h}`} className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
-                        <polygon points={(asRect ? (() => { const b = bbox(tracePx); return [[b.minX, b.minY], [b.maxX, b.minY], [b.maxX, b.maxY], [b.minX, b.maxY]] as Poly; })() : tracePx).map(([x, y]) => `${x},${y}`).join(' ')} fill="rgba(16,185,129,0.25)" stroke="#10b981" strokeWidth={traceDims.w / 250} />
+                        <polygon points={(asRect ? (minAreaRect(tracePx).corners as Poly) : tracePx).map(([x, y]) => `${x},${y}`).join(' ')} fill="rgba(16,185,129,0.25)" stroke="#10b981" strokeWidth={traceDims.w / 250} />
                       </svg>
                     )}
                     <button onClick={() => { setImg(null); setTracePx(null); setTraceDims(null); setLongest(''); }} className="absolute right-2 top-2 rounded-md bg-black/60 px-3 py-1 text-sm text-white">Retake</button>
@@ -275,7 +277,7 @@ function AddRemnant({ mode, foams, onClose, onSaved }: { mode: 'scan' | 'type'; 
                   <input type="number" step="0.25" value={longest} onChange={(e) => setLongest(e.target.value)} className="mt-1 w-full rounded-md border px-3 py-3 text-2xl" disabled={!tracePx} />
                 </label>
                 <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={asRect} onChange={(e) => setAsRect(e.target.checked)} /> Treat as a plain rectangle</label>
-                {scaled && <div className="rounded-md border bg-emerald-50 p-3 text-emerald-900"><div className="text-2xl font-black">{scaled.l}" × {scaled.w}"</div><div className="text-xs">{tracePx?.length} outline points · {asRect ? 'rectangle' : 'traced shape'}</div></div>}
+                {scaled && <div className="rounded-md border bg-emerald-50 p-3 text-emerald-900"><div className="text-2xl font-black">{scaled.l}" × {scaled.w}"</div><div className="text-xs">{tracePx?.length} outline points · {asRect ? 'rectangle' : 'traced shape'}{scaled.angle ? ` · was lying ${scaled.angle}° in the photo, squared up` : ''}</div></div>}
               </>
             )}
             <button onClick={save} disabled={busy || (mode === 'scan' && !scaled)} className="w-full rounded-lg bg-emerald-600 px-5 py-4 text-lg font-bold text-white hover:bg-emerald-500 disabled:opacity-40">{busy ? 'Saving…' : 'Save & find cushions ▶'}</button>

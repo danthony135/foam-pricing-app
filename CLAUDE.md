@@ -30,6 +30,14 @@ What it does:
   UNTICKED slabs (ticked ones are kept verbatim and renumbered first; shelved
   remnants follow the renumbering), marks the remnant used and shelves its own
   leftovers. Thickness is never measured — the operator picks the foam.
+- Camera measurement (`components/foam/MeasureSlab.tsx`, remnant scan): the
+  traced outline gets a best-fit minimum-area rectangle (`minAreaRect` in
+  `lib/shapes.ts`, rotating calipers on the convex hull) — never an
+  axis-aligned bbox, which over-reads a crooked slab. That gives true length
+  × width, the angle of the long side and the origin corner. The outline is
+  expressed in the slab's own frame (`toLocal`) for nesting/pictures; the
+  sheet's `stock` keeps `x`, `y`, `angle` and the projector (`Projector.tsx`
+  `P()`) rotates + offsets the nest onto the foam where it lies.
 
 ## Project Structure
 - npm workspaces: `server/` (Express + TypeScript + Prisma/SQLite) and

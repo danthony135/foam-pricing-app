@@ -6,6 +6,11 @@
  * the remaining unticked slabs of that foam and is re-nested after it. Slabs
  * already ticked off are frozen (kept verbatim, renumbered first) exactly like
  * a remnant claim, and the progress keys / shelved remnants follow.
+ *
+ * The measurement also says where the slab lies on the table (its origin
+ * corner and the angle of its long side). The nest is always done in the
+ * slab's own frame; the projector applies the offset + rotation so the lines
+ * land on the foam even when it is crooked.
  */
 import { prisma } from '../index';
 import { packPieces, type CutPiece, type CutPlan, type PlacedPiece, type Sheet } from './cutOptimizer';
@@ -15,8 +20,9 @@ export interface MeasuredStock {
   lengthIn: number;
   widthIn: number;
   poly?: Poly | null; // measured outline (inches, y-down); omitted = rectangle
-  x?: number; // where the slab sits relative to the table origin (inches)
+  x?: number; // where the slab's origin corner sits relative to the table origin (inches)
   y?: number;
+  angleDeg?: number; // angle of the slab's long side on the table, (-90, 90]
 }
 
 /** The whole pieces on a sheet as nest input (glue parts folded back, outlines at rotation 0). */
@@ -68,7 +74,7 @@ export async function resizeSlab(orderId: number, foamId: number, slabIndex: num
   const measured: Sheet[] = first.sheets.map((s) => ({
     ...s,
     index: kept.length + 1,
-    stock: { length: round(meas.lengthIn, 2), width: round(meas.widthIn, 2), ...(stockPoly ? { poly: stockPoly } : {}), ...(meas.x ? { x: round(meas.x, 2) } : {}), ...(meas.y ? { y: round(meas.y, 2) } : {}) },
+    stock: { length: round(meas.lengthIn, 2), width: round(meas.widthIn, 2), ...(stockPoly ? { poly: stockPoly } : {}), ...(meas.x ? { x: round(meas.x, 2) } : {}), ...(meas.y ? { y: round(meas.y, 2) } : {}), ...(meas.angleDeg ? { angle: round(meas.angleDeg, 2) } : {}) },
   }));
   rest.sheets.forEach((s, i) => { s.index = kept.length + measured.length + i + 1; });
   const sheets = [...kept, ...measured, ...rest.sheets];

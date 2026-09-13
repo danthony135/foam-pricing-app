@@ -122,7 +122,7 @@ export default function Projector() {
     const sheet = plan?.sheets?.find((s: any) => s.index === idx);
     if (!plan || !sheet) return null;
     const req = (order.requirements ?? []).find((r: any) => r.foamId === foamId);
-    return { foamId, sheet, plan, grade: req?.grade ?? '', thickness: req?.thicknessIn ?? 0, length: sheet.stock?.length ?? plan.sheetLength, width: sheet.stock?.width ?? plan.sheetWidth, offX: sheet.stock?.x ?? 0, offY: sheet.stock?.y ?? 0 };
+    return { foamId, sheet, plan, grade: req?.grade ?? '', thickness: req?.thicknessIn ?? 0, length: sheet.stock?.length ?? plan.sheetLength, width: sheet.stock?.width ?? plan.sheetWidth, offX: sheet.stock?.x ?? 0, offY: sheet.stock?.y ?? 0, angle: sheet.stock?.angle ?? 0 };
   }, [state, order]);
 
   const H = useMemo(() => {
@@ -138,7 +138,9 @@ export default function Projector() {
   }, [order]);
   const colorOf = (p: PlacedPiece) => (prefs.colorMode === 'single' ? prefs.color : colors.get(keyOf(p)) ?? prefs.color);
 
-  const P = (pt: Pt): Pt => applyH(H, [pt[0] + (slab?.offX ?? 0), pt[1] + (slab?.offY ?? 0)]);
+  // Slab frame → table frame (turn by the measured angle about the slab's origin corner, then offset) → projector px.
+  const ang = ((slab?.angle ?? 0) * Math.PI) / 180, cosA = Math.cos(ang), sinA = Math.sin(ang);
+  const P = (pt: Pt): Pt => applyH(H, [(slab?.offX ?? 0) + pt[0] * cosA - pt[1] * sinA, (slab?.offY ?? 0) + pt[0] * sinA + pt[1] * cosA]);
   const pts = (poly: Pt[]) => poly.map((q) => P(q)).map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' ');
   const rectPoly = (x: number, y: number, w: number, h: number): Pt[] => [[x, y], [x + w, y], [x + w, y + h], [x, y + h]];
 
@@ -244,7 +246,7 @@ export default function Projector() {
         <div className="absolute bottom-3 left-3 rounded-lg bg-white/10 px-3 py-2 text-xs text-white/80 backdrop-blur">
           <div className="font-bold text-white">Foam projector · {win.w}×{win.h}{document.fullscreenElement ? '' : ' · press F for full screen'}</div>
           <div>
-            {state.mode === 'slab' && slab ? `${order?.name} · ${slab.grade} slab ${slab.sheet.index} · ${slab.length}×${slab.width}${slab.sheet.stock ? ' measured' : ''} · ${slab.sheet.pieces.length} pieces` : null}
+            {state.mode === 'slab' && slab ? `${order?.name} · ${slab.grade} slab ${slab.sheet.index} · ${slab.length}×${slab.width}${slab.sheet.stock ? ' measured' : ''}${slab.angle ? ` · turned ${slab.angle > 0 ? '+' : ''}${slab.angle}°` : ''} · ${slab.sheet.pieces.length} pieces` : null}
             {state.mode === 'slab' && !slab ? 'Waiting for a slab from the cut station…' : null}
             {state.mode === 'calibrate' ? `Calibrating plane ${state.calibrate?.thicknessIn ?? '?'}" — drag crosshairs or use arrow keys (Shift = 10 px); corner ${(state.calibrate?.active ?? 0) + 1} selected` : null}
             {state.mode === 'grid' ? `6" grid at ${state.gridThickness ?? 0}" plane` : null}

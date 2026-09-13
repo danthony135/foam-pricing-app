@@ -32,7 +32,8 @@ async function putSetting(key: string, value: unknown) {
 }
 
 export const DEFAULT_STATE = { mode: 'idle', orderId: null as number | null, slabKey: null as string | null, calibrate: null as null | { planeIdx: number; corners: [number, number][]; active?: number }, updatedAt: '' };
-export const DEFAULT_PREFS = { lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true, showGrid: false };
+// lineMode 'dark' = light the slab and leave the cut lines unlit (black, thin) — a projector cannot emit black any other way.
+export const DEFAULT_PREFS = { lineMode: 'dark', cutLineWidth: 1, lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true, showGrid: false };
 
 router.get('/state', async (_req, res, next) => {
   try {

@@ -289,7 +289,10 @@ export default function ProjectionSetup() {
             {thicknessChoices.filter((t) => t > 0).map((t) => <button key={t} onClick={() => setMeasure(t)} className="rounded-full border border-emerald-500 px-3 py-1.5 font-semibold text-emerald-700 hover:bg-emerald-50">Measure a {t}" slab (dry run)</button>)}
           </div>
           <div className="flex flex-wrap items-end gap-4 text-sm">
-            <label>Line width (px)<input type="number" min={1} max={12} value={prefs.lineWidth ?? 3} onChange={(e) => setPrefs({ ...prefs, lineWidth: Number(e.target.value) })} className="mt-1 block w-24 rounded-md border px-2 py-1.5" /></label>
+            <label>Cut lines<select value={prefs.lineMode ?? 'dark'} onChange={(e) => setPrefs({ ...prefs, lineMode: e.target.value })} className="mt-1 block rounded-md border bg-white px-2 py-1.5"><option value="dark">black on lit foam (thin)</option><option value="light">bright lines on dark table</option></select></label>
+            {(prefs.lineMode ?? 'dark') === 'dark'
+              ? <label>Cut line width (px)<input type="number" min={0.5} max={4} step={0.5} value={prefs.cutLineWidth ?? 1} onChange={(e) => setPrefs({ ...prefs, cutLineWidth: Number(e.target.value) })} className="mt-1 block w-24 rounded-md border px-2 py-1.5" /></label>
+              : <label>Line width (px)<input type="number" min={1} max={12} value={prefs.lineWidth ?? 3} onChange={(e) => setPrefs({ ...prefs, lineWidth: Number(e.target.value) })} className="mt-1 block w-24 rounded-md border px-2 py-1.5" /></label>}
             <label>Label size (px)<input type="number" min={8} max={60} value={prefs.labelSize ?? 22} onChange={(e) => setPrefs({ ...prefs, labelSize: Number(e.target.value) })} className="mt-1 block w-24 rounded-md border px-2 py-1.5" /></label>
             <label>Colour<select value={prefs.colorMode ?? 'mo'} onChange={(e) => setPrefs({ ...prefs, colorMode: e.target.value })} className="mt-1 block rounded-md border bg-white px-2 py-1.5"><option value="mo">per production order</option><option value="single">single colour</option></select></label>
             {prefs.colorMode === 'single' && <label>Colour<input type="color" value={prefs.color ?? '#00ff66'} onChange={(e) => setPrefs({ ...prefs, color: e.target.value })} className="mt-1 block h-9 w-14 rounded-md border" /></label>}
@@ -297,7 +300,7 @@ export default function ProjectionSetup() {
             <label className="flex items-center gap-2"><input type="checkbox" checked={prefs.showOutline ?? true} onChange={(e) => setPrefs({ ...prefs, showOutline: e.target.checked })} /> slab outline</label>
             <button onClick={() => api.saveStationPrefs(prefs).then(() => flash('Prefs saved')).catch((e) => setErr(e.message))} className="rounded-md bg-slate-900 px-4 py-2 font-semibold text-white">Save style</button>
           </div>
-          <div className="text-xs text-slate-500">On the Cut Station, turn on <b>Project</b> and the slab on screen is also on the table. <Link to="/cut-station" className="underline">Open the Cut Station</Link>.</div>
+          <div className="text-xs text-slate-500">Black cut lines: the projector lights the slab white (pieces tinted per order) and leaves the cut line unlit — 1 px is about ⅛" on a 120" table at 1080p, so the line never adds to a piece. On the Cut Station, turn on <b>Project</b> and the slab on screen is also on the table. <Link to="/cut-station" className="underline">Open the Cut Station</Link>.</div>
         </CardContent>
       </Card>
 

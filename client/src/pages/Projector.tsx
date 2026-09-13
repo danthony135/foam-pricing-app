@@ -113,7 +113,11 @@ export default function Projector() {
 
   const state = station?.state ?? { mode: 'idle' };
   const cal = station?.calibration ?? null;
-  const prefs = station?.prefs ?? { lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true };
+  const prefs = station?.prefs ?? { lineMode: 'dark', cutLineWidth: 1, lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true };
+  // Black cut lines: a projector cannot throw black, so the slab is lit white (pieces tinted per order) and the
+  // cut lines are left unlit, as thin as the projector can draw so the line never adds to the piece size.
+  const dark = (prefs.lineMode ?? 'dark') !== 'light';
+  const cutW = Math.max(0.5, Number(prefs.cutLineWidth) || 1);
   const L = cal?.refLengthIn ?? 120, W = cal?.refWidthIn ?? 120;
   // What the calibrate crosshairs mark (the table or the calibration slab in the stops).
   const mL = Number(state.calibrate?.markL) || L, mW = Number(state.calibrate?.markW) || W;
@@ -197,7 +201,10 @@ export default function Projector() {
         {/* ---- slab ---- */}
         {state.mode === 'slab' && slab && (
           <g>
-            {prefs.showOutline && <polygon points={pts(outline)} fill="none" stroke="#ffffff" strokeWidth={lw * 0.7} strokeDasharray={`${lw * 4} ${lw * 3}`} opacity={0.8} />}
+            {dark && <polygon points={pts(outline)} fill="#ffffff" stroke="none" />}
+            {prefs.showOutline && (dark
+              ? <polygon points={pts(outline)} fill="none" stroke="#000000" strokeWidth={cutW} strokeDasharray={`${cutW * 8} ${cutW * 5}`} />
+              : <polygon points={pts(outline)} fill="none" stroke="#ffffff" strokeWidth={lw * 0.7} strokeDasharray={`${lw * 4} ${lw * 3}`} opacity={0.8} />)}
             {(slab.sheet.pieces as PlacedPiece[]).map((p, i) => {
               const poly = p.poly ?? rectPoly(p.x, p.y, p.w, p.h);
               const c = colorOf(p);
@@ -208,13 +215,15 @@ export default function Projector() {
               const mo = p.mo ? moLabel(p.mo) : null;
               return (
                 <g key={i}>
-                  <polygon points={pts(poly)} fill={c} fillOpacity={0.06} stroke={c} strokeWidth={lw} strokeLinejoin="round" />
-                  {p.glue && <line x1={P([p.glue.seam[0], p.glue.seam[1]])[0]} y1={P([p.glue.seam[0], p.glue.seam[1]])[1]} x2={P([p.glue.seam[2], p.glue.seam[3]])[0]} y2={P([p.glue.seam[2], p.glue.seam[3]])[1]} stroke="#ff3b30" strokeWidth={lw * 1.3} strokeDasharray={`${lw * 3} ${lw * 2}`} />}
+                  {dark
+                    ? <polygon points={pts(poly)} fill={c} fillOpacity={0.28} stroke="#000000" strokeWidth={cutW} strokeLinejoin="miter" />
+                    : <polygon points={pts(poly)} fill={c} fillOpacity={0.06} stroke={c} strokeWidth={lw} strokeLinejoin="round" />}
+                  {p.glue && <line x1={P([p.glue.seam[0], p.glue.seam[1]])[0]} y1={P([p.glue.seam[0], p.glue.seam[1]])[1]} x2={P([p.glue.seam[2], p.glue.seam[3]])[0]} y2={P([p.glue.seam[2], p.glue.seam[3]])[1]} stroke="#ff3b30" strokeWidth={dark ? Math.max(cutW, 1.5) : lw * 1.3} strokeDasharray={dark ? '6 4' : `${lw * 3} ${lw * 2}`} />}
                   {prefs.showLabels && (
-                    <g fontFamily="system-ui, sans-serif" textAnchor="middle" fill="#fff">
+                    <g fontFamily="system-ui, sans-serif" textAnchor="middle" fill={dark ? '#000' : '#fff'}>
                       <text x={sx} y={sy - (mo ? fs * 0.35 : 0)} fontSize={fs} fontWeight={800}>{p.label.split(' ')[0]}</text>
-                      {mo && <text x={sx} y={sy + fs * 0.75} fontSize={fs * 0.85} fontWeight={700} fill={c}>{mo}</text>}
-                      <text x={sx} y={sy + fs * (mo ? 1.55 : 0.9)} fontSize={fs * 0.6} fill="#ddd">{p.label.split(' ').slice(1).join(' ')} · {p.w}×{p.h}{p.glue ? ` · GLUE ${p.glue.part}` : ''}</text>
+                      {mo && <text x={sx} y={sy + fs * 0.75} fontSize={fs * 0.85} fontWeight={700} fill={dark ? '#000' : c}>{mo}</text>}
+                      <text x={sx} y={sy + fs * (mo ? 1.55 : 0.9)} fontSize={fs * 0.6} fill={dark ? '#222' : '#ddd'}>{p.label.split(' ').slice(1).join(' ')} · {p.w}×{p.h}{p.glue ? ` · GLUE ${p.glue.part}` : ''}</text>
                     </g>
                   )}
                 </g>

@@ -10,11 +10,23 @@
  * thick slab is closer to the projector, so the corners spread; with two planes
  * calibrated the corners for any thickness are interpolated linearly, which is
  * accurate to well under a pixel over an 8" range at a 9 ft throw.
+ *
+ * The reference rectangle is normally the whole table (120 × 120), which no
+ * slab covers. A thickness plane is therefore marked with a smaller
+ * "calibration slab" in the stops and the four marked corners are
+ * extrapolated to the table corners through the homography they define — exact
+ * for a pinhole projector/camera, see `extrapolateCorners`.
  */
 export type Pt = [number, number];
 export interface Plane { thicknessIn: number; corners: [Pt, Pt, Pt, Pt] }
 export interface DeviceCal { screenW?: number; screenH?: number; imgW?: number; imgH?: number; planes: Plane[] }
-export interface Calibration { refLengthIn: number; refWidthIn: number; projector: DeviceCal | null; camera: DeviceCal | null; updatedAt?: string }
+export interface Calibration {
+  /** The projection area: the table (or the part of it the projector covers), corner in the stops = (0,0). */
+  refLengthIn: number; refWidthIn: number;
+  /** The real slab used to mark thickness planes (default: the biggest slab you buy). */
+  calSlabLengthIn?: number; calSlabWidthIn?: number;
+  projector: DeviceCal | null; camera: DeviceCal | null; updatedAt?: string;
+}
 
 export const refCorners = (L: number, W: number): [Pt, Pt, Pt, Pt] => [[0, 0], [L, 0], [L, W], [0, W]];
 
@@ -75,6 +87,16 @@ export function imageToTable(cal: Calibration | null | undefined, thicknessIn: n
   if (!cal?.camera) return null;
   const c = cornersAt(cal.camera, thicknessIn);
   return c ? solveHomography(c, refCorners(cal.refLengthIn, cal.refWidthIn)) : null;
+}
+
+/**
+ * Corners of the full reference rectangle (refL × refW) given where the corners of
+ * a smaller rectangle (markL × markW, same origin in the stops) were marked.
+ */
+export function extrapolateCorners(markL: number, markW: number, marked: Pt[], refL: number, refW: number): [Pt, Pt, Pt, Pt] {
+  if (Math.abs(markL - refL) < 1e-6 && Math.abs(markW - refW) < 1e-6) return marked.slice(0, 4) as [Pt, Pt, Pt, Pt];
+  const h = solveHomography(refCorners(markL, markW), marked.slice(0, 4));
+  return refCorners(refL, refW).map((p) => applyH(h, p)) as [Pt, Pt, Pt, Pt];
 }
 
 /** Default projector corners: the reference rectangle fitted in the screen with a margin. */

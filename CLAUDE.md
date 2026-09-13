@@ -38,6 +38,20 @@ What it does:
   expressed in the slab's own frame (`toLocal`) for nesting/pictures; the
   sheet's `stock` keeps `x`, `y`, `angle` and the projector (`Projector.tsx`
   `P()`) rotates + offsets the nest onto the foam where it lies.
+- Cutting is size-free: slab sizes per foam (default 108 × 84, what we buy)
+  are only planning defaults for the initial nest / RFQ. On the table the
+  operator hits "Scan stock on table" and whatever foam is there (full slab,
+  short slab, remnant of any shape, any angle) is traced, nested and projected
+  (`slabResize.ts`): a full slab keeps its planned pieces; a partial slab or
+  remnant (`fill`) is filled from every unticked piece of that foam and the
+  rest of the plan is rebuilt behind it.
+- Calibration (`/settings/projection`): the reference rectangle is the TABLE
+  (projection area, default 120 × 120, corner in the stops = (0,0)), not a
+  slab. Thickness planes are marked with a tape-measured "calibration slab"
+  in the stops (default 108 × 84) and its four corners are extrapolated to the
+  table corners through the homography (`extrapolateCorners`). The projected
+  image must cover the whole table area; otherwise set the table size to the
+  part it covers.
 
 ## Project Structure
 - npm workspaces: `server/` (Express + TypeScript + Prisma/SQLite) and

@@ -6,7 +6,8 @@
  *   station.state        what the projector should show right now
  *                        { mode: idle|slab|grid|calibrate, orderId, slabKey,
  *                          calibrate: { planeIdx, corners } }
- *   station.calibration  { refLengthIn, refWidthIn,
+ *   station.calibration  { refLengthIn, refWidthIn (the table / projection area, default 120×120),
+ *                          calSlabLengthIn, calSlabWidthIn (slab used to mark thickness planes),
  *                          projector: { screenW, screenH, planes: [{thicknessIn, corners[4]}] },
  *                          camera:    { imgW, imgH,       planes: [{thicknessIn, corners[4]}] } }
  *                        corners are TL, TR, BR, BL of the reference rectangle
@@ -60,8 +61,10 @@ router.put('/calibration', async (req, res, next) => {
   try {
     const b = req.body ?? {};
     const cal = {
-      refLengthIn: Number(b.refLengthIn) || 82,
-      refWidthIn: Number(b.refWidthIn) || 36,
+      refLengthIn: Number(b.refLengthIn) || 120,
+      refWidthIn: Number(b.refWidthIn) || 120,
+      calSlabLengthIn: Number(b.calSlabLengthIn) || 108,
+      calSlabWidthIn: Number(b.calSlabWidthIn) || 84,
       projector: b.projector ?? null,
       camera: b.camera ?? null,
       updatedAt: new Date().toISOString(),

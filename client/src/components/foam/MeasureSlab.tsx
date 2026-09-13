@@ -1,11 +1,13 @@
 /**
- * Measure the slab on the table with the overhead camera. A snapshot (station
- * camera on the projector PC, or this device's camera) is traced — light foam
- * on the dark table — and the outline is mapped through the camera calibration
- * for that foam's thickness into table inches. The operator sees measured vs
- * nominal size and, if the slab is short or damaged, re-nests that slab to its
- * real size (pieces that no longer fit move to the following slabs). Typing the
- * size in works too when there is no camera.
+ * Scan the foam on the table with the overhead camera — a full slab, a short or
+ * damaged one, or a remnant of any shape. A snapshot (station camera on the
+ * projector PC, or this device's camera) is traced — light foam on the dark
+ * table — and the outline is mapped through the camera calibration for that
+ * foam's thickness into table inches. The operator sees measured vs nominal
+ * size and nests onto what is really there: a full slab keeps its planned
+ * pieces; a partial slab or remnant is filled from every piece still to cut
+ * for that foam and the rest of the plan is rebuilt behind it. Typing the size
+ * in works too when there is no camera.
  *
  * The slab does not have to be square to the table: the outline gets a
  * best-fit (minimum-area) rectangle, which gives its true length x width, the
@@ -90,12 +92,14 @@ export function MeasureSlab({ cal, thicknessIn, nominal, orderId, foamId, slabIn
   const outside = !!(measured?.corners && cal && measured.corners.some(([x, y]) => x < -1 || y < -1 || x > cal.refLengthIn + 1 || y > cal.refWidthIn + 1));
   // Where the slab lies goes with the re-nest even when the size matches, so the projection lands on the foam.
   const placed = measured?.source === 'camera' && (crooked || moved);
+  // Not a full slab (clearly smaller, or an irregular outline): fill it from everything still to cut for this foam.
+  const partial = !!measured && (measured.length < nominal.length - 1 || measured.width < nominal.width - 1 || (measured.source === 'camera' && !asRect));
 
   const apply = async () => {
     if (!measured || !orderId || !foamId || !slabIndex) return;
     setBusy('Re-nesting…');
     try {
-      await api.resizeSlab(orderId, { foamId, slabIndex, lengthIn: measured.length, widthIn: measured.width, poly: asRect ? null : measured.poly, x: measured.x, y: measured.y, angleDeg: measured.angle });
+      await api.resizeSlab(orderId, { foamId, slabIndex, lengthIn: measured.length, widthIn: measured.width, poly: asRect ? null : measured.poly, x: measured.x, y: measured.y, angleDeg: measured.angle, fill: partial });
       onApplied?.();
       onClose();
     } catch (e: any) { setMsg(e.message); } finally { setBusy(''); }
@@ -114,8 +118,8 @@ export function MeasureSlab({ cal, thicknessIn, nominal, orderId, foamId, slabIn
       <div className="max-h-full w-full max-w-5xl overflow-auto rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold">Measure the slab on the table</h2>
-            <p className="text-sm text-slate-500">{grade ? `${grade} · ` : ''}slab {slabIndex ?? ''} · nominal {nominal.length}" × {nominal.width}" · {thicknessIn}" plane. Slab must be fully in the picture on the bare (dark) table. It does not have to be square — the projector follows where it lies.</p>
+            <h2 className="text-2xl font-bold">Scan the foam on the table</h2>
+            <p className="text-sm text-slate-500">{grade ? `${grade} · ` : ''}slab {slabIndex ?? ''} · planned {nominal.length}" × {nominal.width}" · {thicknessIn}" plane. Any piece of foam works — a full slab, a short one, a remnant. It must be fully in the picture on the bare (dark) table; it does not have to be square — the projector follows where it lies.</p>
           </div>
           <button onClick={onClose} className="rounded-md border px-3 py-1.5 text-sm">Close</button>
         </div>
@@ -163,14 +167,14 @@ export function MeasureSlab({ cal, thicknessIn, nominal, orderId, foamId, slabIn
                   <div className="mt-2 text-xs text-slate-600">Lying at <b>{measured.angle > 0 ? '+' : ''}{measured.angle}°</b>, corner {measured.x}" / {measured.y}" from the table origin{crooked || moved ? ' — the projector will draw the nest turned to match.' : '.'}</div>
                 )}
                 {outside && <div className="mt-2 text-xs font-semibold text-red-700">Part of the slab is outside the calibrated area — the projector cannot draw there. Slide it in and measure again.</div>}
-                <div className="mt-2 text-sm">{differs ? 'Not the nominal size. Re-nest this slab to what is really there; pieces that no longer fit move to the next slab.' : placed ? 'Size matches the plan. Apply to project the nest onto the slab where it lies.' : 'Matches the plan within ¼". Nothing to do.'}</div>
+                <div className="mt-2 text-sm">{partial ? 'Not a full slab. It will be filled from every piece still to cut for this foam, and the rest of the plan is rebuilt behind it.' : differs ? 'Not the planned size. Re-nest this slab to what is really there; pieces that no longer fit move to the next slab.' : placed ? 'Size matches the plan. Apply to project the nest onto the slab where it lies.' : 'Matches the plan within ¼". Nothing to do.'}</div>
               </div>
             ) : (
               <div className="rounded-lg border p-4 text-sm text-slate-500">Take a picture or type the size to compare with the plan.</div>
             )}
             {measured?.source === 'camera' && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={asRect} onChange={(e) => setAsRect(e.target.checked)} /> Treat as a rectangle (untick if a corner is missing or torn)</label>}
             {orderId ? (
-              <button onClick={apply} disabled={!measured || !(differs || placed) || outside || !!busy} className="w-full rounded-lg bg-amber-500 px-4 py-4 text-lg font-black text-white disabled:opacity-40">{differs ? `Re-nest slab ${slabIndex} to measured size` : `Project onto slab ${slabIndex} where it lies`}</button>
+              <button onClick={apply} disabled={!measured || !(differs || placed) || outside || !!busy} className="w-full rounded-lg bg-amber-500 px-4 py-4 text-lg font-black text-white disabled:opacity-40">{partial ? 'Nest onto this stock and project' : differs ? `Re-nest slab ${slabIndex} to measured size` : `Project onto slab ${slabIndex} where it lies`}</button>
             ) : null}
             <button onClick={onClose} className="w-full rounded-lg border px-4 py-3 font-semibold">{differs || placed ? 'Leave it as planned' : 'Done'}</button>
           </div>

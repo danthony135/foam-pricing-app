@@ -1,9 +1,11 @@
 /**
- * Re-nest one slab of a cut plan to its MEASURED size. The overhead camera
- * (or a tape) says the slab on the table is not the nominal 82 × 36 — maybe it
- * is short, maybe a corner is missing. The pieces planned for that slab are
+ * Re-nest one slab of a cut plan to the stock that is REALLY on the table. The
+ * overhead camera (or a tape) says what is there — a full slab, a short or
+ * damaged one, or a remnant of any shape. The pieces planned for that slab are
  * packed onto the measured stock; whatever no longer fits joins the pieces of
- * the remaining unticked slabs of that foam and is re-nested after it. Slabs
+ * the remaining unticked slabs of that foam and is re-nested after it. With
+ * `fill` (a partial slab or remnant) the pool is every unticked piece of the
+ * foam, so the stock gets filled well and the plan is rebuilt behind it. Slabs
  * already ticked off are frozen (kept verbatim, renumbered first) exactly like
  * a remnant claim, and the progress keys / shelved remnants follow.
  *
@@ -23,6 +25,7 @@ export interface MeasuredStock {
   x?: number; // where the slab's origin corner sits relative to the table origin (inches)
   y?: number;
   angleDeg?: number; // angle of the slab's long side on the table, (-90, 90]
+  fill?: boolean; // pack from every unticked piece of this foam (partial slab / remnant), not just this slab's
 }
 
 /** The whole pieces on a sheet as nest input (glue parts folded back, outlines at rotation 0). */
@@ -53,9 +56,10 @@ export async function resizeSlab(orderId: number, foamId: number, slabIndex: num
   const kept = p.sheets.filter((s) => done.has(`${foamId}-${s.index}`));
   const others = p.sheets.filter((s) => !done.has(`${foamId}-${s.index}`) && s.index !== slabIndex);
 
-  // Pack the slab's own pieces onto the measured stock.
+  // Pack onto the measured stock: this slab's own pieces, or (fill) everything still to cut.
   const stockPoly = isValid(meas.poly) ? normalize(meas.poly as Poly) : undefined;
-  const own = piecesOfSheet(target);
+  const othersPieces = others.flatMap(piecesOfSheet);
+  const own = meas.fill ? [...piecesOfSheet(target), ...othersPieces] : piecesOfSheet(target);
   const first = packPieces(own, meas.lengthIn, meas.widthIn, { glue: false, stockPoly, maxSheets: 1 });
   const placedLabels = new Map<string, number>();
   for (const s of first.sheets) for (const pp of s.pieces) { const k = `${pp.label}|${pp.mo ?? ''}`; placedLabels.set(k, (placedLabels.get(k) ?? 0) + 1); }
@@ -67,7 +71,7 @@ export async function resizeSlab(orderId: number, foamId: number, slabIndex: num
   });
 
   // Everything else still to cut, plus the overflow, on nominal slabs.
-  const rest = packPieces([...others.flatMap(piecesOfSheet), ...overflow], p.sheetLength, p.sheetWidth);
+  const rest = packPieces(meas.fill ? overflow : [...othersPieces, ...overflow], p.sheetLength, p.sheetWidth);
 
   const renumber: { from: number; to: number }[] = [];
   kept.forEach((s, i) => { renumber.push({ from: s.index, to: i + 1 }); s.index = i + 1; });

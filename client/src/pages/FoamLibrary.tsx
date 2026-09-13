@@ -11,7 +11,7 @@ type Row = Foam & { _dirty?: boolean };
 export default function FoamLibrary() {
   const [rows, setRows] = useState<Row[]>([]);
   const [msg, setMsg] = useState('');
-  const [draft, setDraft] = useState({ grade: '', thicknessIn: '', sheetLengthIn: '82', sheetWidthIn: '36', costPerBoardFoot: '', supplier: '' });
+  const [draft, setDraft] = useState({ grade: '', thicknessIn: '', sheetLengthIn: '108', sheetWidthIn: '84', costPerBoardFoot: '', supplier: '' });
 
   const load = () => api.getFoams().then(setRows).catch((e) => setMsg(String(e)));
   useEffect(() => { load(); }, []);
@@ -19,14 +19,14 @@ export default function FoamLibrary() {
   const edit = (id: number, patch: Partial<Row>) => setRows(rows.map((r) => (r.id === id ? { ...r, ...patch, _dirty: true } : r)));
   const save = async (r: Row) => {
     const { _dirty, id, createdAt, updatedAt, ...data } = r as any;
-    await api.updateFoam(id, { ...data, thicknessIn: data.thicknessIn === '' || data.thicknessIn == null ? null : Number(data.thicknessIn), sheetLengthIn: Number(data.sheetLengthIn) || 82, sheetWidthIn: Number(data.sheetWidthIn) || 36, costPerBoardFoot: Number(data.costPerBoardFoot) || 0, density: Number(data.density) || 0 });
+    await api.updateFoam(id, { ...data, thicknessIn: data.thicknessIn === '' || data.thicknessIn == null ? null : Number(data.thicknessIn), sheetLengthIn: Number(data.sheetLengthIn) || 108, sheetWidthIn: Number(data.sheetWidthIn) || 84, costPerBoardFoot: Number(data.costPerBoardFoot) || 0, density: Number(data.density) || 0 });
     setMsg(`Saved ${r.grade}`);
     load();
   };
   const remove = async (r: Row) => { if (!confirm(`Delete ${r.grade}? Pieces using it lose their foam type.`)) return; await api.deleteFoam(r.id); load(); };
   const add = async () => {
     if (!draft.grade) return;
-    await api.createFoam({ grade: draft.grade, density: 0, thicknessIn: draft.thicknessIn ? Number(draft.thicknessIn) : null, sheetLengthIn: Number(draft.sheetLengthIn) || 82, sheetWidthIn: Number(draft.sheetWidthIn) || 36, costPerBoardFoot: Number(draft.costPerBoardFoot) || 0, supplier: draft.supplier || null });
+    await api.createFoam({ grade: draft.grade, density: 0, thicknessIn: draft.thicknessIn ? Number(draft.thicknessIn) : null, sheetLengthIn: Number(draft.sheetLengthIn) || 108, sheetWidthIn: Number(draft.sheetWidthIn) || 84, costPerBoardFoot: Number(draft.costPerBoardFoot) || 0, supplier: draft.supplier || null });
     setDraft({ ...draft, grade: '', thicknessIn: '', costPerBoardFoot: '' });
     load();
   };
@@ -49,8 +49,8 @@ export default function FoamLibrary() {
                 <tr key={r.id} className={`border-b ${r.active === false ? 'opacity-50' : ''}`}>
                   <td className="p-2"><Input value={r.grade} onChange={(e) => edit(r.id, { grade: e.target.value })} /></td>
                   <td className="p-2 w-24"><Input type="number" step="0.25" value={r.thicknessIn ?? ''} onChange={(e) => edit(r.id, { thicknessIn: e.target.value as any })} /></td>
-                  <td className="p-2 w-24"><Input type="number" value={r.sheetLengthIn ?? 82} onChange={(e) => edit(r.id, { sheetLengthIn: e.target.value as any })} /></td>
-                  <td className="p-2 w-24"><Input type="number" value={r.sheetWidthIn ?? 36} onChange={(e) => edit(r.id, { sheetWidthIn: e.target.value as any })} /></td>
+                  <td className="p-2 w-24"><Input type="number" value={r.sheetLengthIn ?? 108} onChange={(e) => edit(r.id, { sheetLengthIn: e.target.value as any })} /></td>
+                  <td className="p-2 w-24"><Input type="number" value={r.sheetWidthIn ?? 84} onChange={(e) => edit(r.id, { sheetWidthIn: e.target.value as any })} /></td>
                   <td className="p-2 w-24"><Input type="number" step="0.01" value={r.costPerBoardFoot} onChange={(e) => edit(r.id, { costPerBoardFoot: e.target.value as any })} /></td>
                   <td className="p-2"><Input value={r.supplier ?? ''} onChange={(e) => edit(r.id, { supplier: e.target.value })} /></td>
                   <td className="p-2 text-xs text-muted-foreground">{r.odooTemplateId ? `tmpl ${r.odooTemplateId}` : 'local only'}</td>

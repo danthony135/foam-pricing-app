@@ -1,24 +1,28 @@
 /**
  * Projector & camera setup — the calibration wizard (run from the tablet).
  *
- *  1. Reference slab: the full slab size you will butt against the table stops
- *     (default the 82×36 stock slab). Its corner nearest the stops is (0,0).
- *  2. Projector planes: with a real slab of a given thickness on the table, the
- *     projector shows four numbered crosshairs; nudge each onto the matching
- *     slab corner and save. Do it for the table (0") or a thin slab AND for a
- *     thick slab — the app interpolates every other thickness.
- *  3. Camera planes: snapshot of the same slab, tap its four corners in order.
+ *  1. Table: the projection area (default the 120×120 table) — the corner in
+ *     the stops is (0,0). Plus the calibration slab (default the biggest slab
+ *     you buy, 108×84) used to mark the thickness planes.
+ *  2. Projector planes: the projector shows four numbered crosshairs; nudge
+ *     each onto a corner of what is being marked — tape at the table's four
+ *     corners (0") or the calibration slab in the stops (any thickness) — and
+ *     save. Slab corners are extrapolated to the table corners through the
+ *     homography. Do the table AND a thick slab; every other thickness is
+ *     interpolated.
+ *  3. Camera planes: snapshot of the same thing, tap its four corners in order.
  *  4. Test: 6" grid on the table, slab measurement dry run, line prefs.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '@/lib/api';
-import { type Calibration, type Plane, type Pt } from '@/lib/homography';
+import { extrapolateCorners, type Calibration, type Plane, type Pt } from '@/lib/homography';
 import { MeasureSlab } from '@/components/foam/MeasureSlab';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 const CORNER_NAMES = ['1 · top-left (0,0)', '2 · top-right (L,0)', '3 · bottom-right (L,W)', '4 · bottom-left (0,W)'];
-const EMPTY: Calibration = { refLengthIn: 82, refWidthIn: 36, projector: null, camera: null };
+const EMPTY: Calibration = { refLengthIn: 120, refWidthIn: 120, calSlabLengthIn: 108, calSlabWidthIn: 84, projector: null, camera: null };
+type Mark = 'table' | 'slab';
 
 export default function ProjectionSetup() {
   const [cal, setCal] = useState<Calibration>(EMPTY);
@@ -30,9 +34,11 @@ export default function ProjectionSetup() {
   const [note, setNote] = useState('');
   // projector plane editing
   const [editThk, setEditThk] = useState<number | null>(null);
+  const [editMark, setEditMark] = useState<Mark>('slab');
   const [step, setStep] = useState(5);
   // camera plane editing
   const [camThk, setCamThk] = useState<number | null>(null);
+  const [camMark, setCamMark] = useState<Mark>('slab');
   const [camImg, setCamImg] = useState<{ src: string; w: number; h: number } | null>(null);
   const [taps, setTaps] = useState<Pt[]>([]);
   const [camBusy, setCamBusy] = useState('');
@@ -55,11 +61,19 @@ export default function ProjectionSetup() {
   const flash = (t: string) => { setNote(t); setTimeout(() => setNote(''), 1800); };
   const setMode = (patch: any) => api.setStationState(patch).then(setState).catch((e) => setErr(e.message));
 
+  // The calibration slab: what gets put in the stops to mark a thickness plane.
+  const slabL = cal.calSlabLengthIn || 108, slabW = cal.calSlabWidthIn || 84;
+  const markSize = (m: Mark) => (m === 'table' ? { L: cal.refLengthIn, W: cal.refWidthIn } : { L: slabL, W: slabW });
+  const markLabel = (m: Mark) => (m === 'table' ? `the table's four corners (${cal.refLengthIn}×${cal.refWidthIn}, tape marks)` : `the ${slabL}×${slabW} calibration slab in the stops`);
+
   // ---- projector plane editing -------------------------------------------
-  const startEdit = (thk: number) => {
+  const startEdit = (thk: number, m: Mark = thk === 0 ? 'table' : 'slab') => {
     const existing = cal.projector?.planes.find((p) => p.thicknessIn === thk);
-    setEditThk(thk);
-    setMode({ mode: 'calibrate', calibrate: { thicknessIn: thk, active: 0, corners: existing?.corners ?? null, screenW: existing ? cal.projector?.screenW : undefined, screenH: existing ? cal.projector?.screenH : undefined } });
+    const { L, W } = markSize(m);
+    setEditThk(thk); setEditMark(m);
+    // Marking the table: start from the saved corners. Marking a slab: the projector seeds the crosshairs (from the saved planes if any).
+    const seed = existing && m === 'table';
+    setMode({ mode: 'calibrate', calibrate: { thicknessIn: thk, active: 0, markL: L, markW: W, corners: seed ? existing.corners : null, screenW: seed ? cal.projector?.screenW : undefined, screenH: seed ? cal.projector?.screenH : undefined } });
   };
   const corners: Pt[] | null = state?.calibrate?.corners ?? null;
   const active: number = state?.calibrate?.active ?? 0;
@@ -72,7 +86,8 @@ export default function ProjectionSetup() {
   const savePlane = () => {
     if (!corners || editThk === null) return;
     const planes = (cal.projector?.planes ?? []).filter((p) => p.thicknessIn !== editThk);
-    planes.push({ thicknessIn: editThk, corners: corners as Plane['corners'] });
+    const { L, W } = markSize(editMark);
+    planes.push({ thicknessIn: editThk, corners: extrapolateCorners(L, W, corners, cal.refLengthIn, cal.refWidthIn) });
     planes.sort((a, b) => a.thicknessIn - b.thicknessIn);
     save({ ...cal, projector: { screenW: state?.calibrate?.screenW, screenH: state?.calibrate?.screenH, planes } });
     setEditThk(null);
@@ -108,7 +123,8 @@ export default function ProjectionSetup() {
   const saveCamPlane = () => {
     if (!camImg || taps.length !== 4 || camThk === null) return;
     const planes = (cal.camera?.planes ?? []).filter((p) => p.thicknessIn !== camThk);
-    planes.push({ thicknessIn: camThk, corners: taps as Plane['corners'] });
+    const { L, W } = markSize(camMark);
+    planes.push({ thicknessIn: camThk, corners: extrapolateCorners(L, W, taps, cal.refLengthIn, cal.refWidthIn) });
     planes.sort((a, b) => a.thicknessIn - b.thicknessIn);
     save({ ...cal, camera: { imgW: camImg.w, imgH: camImg.h, planes } });
     setCamThk(null); setCamImg(null); setTaps([]);
@@ -132,14 +148,23 @@ export default function ProjectionSetup() {
       </div>
       {err && <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm">{err} <button className="ml-2 underline" onClick={() => setErr('')}>dismiss</button></div>}
 
-      {/* 1. reference slab */}
+      {/* 1. table + calibration slab */}
       <Card>
-        <CardHeader><CardTitle className="text-base">1 · Reference slab</CardTitle></CardHeader>
-        <CardContent className="flex flex-wrap items-end gap-3">
-          <label className="text-sm font-semibold">Length (in)<input type="number" step="0.25" value={cal.refLengthIn} onChange={(e) => setCal({ ...cal, refLengthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
-          <label className="text-sm font-semibold">Width (in)<input type="number" step="0.25" value={cal.refWidthIn} onChange={(e) => setCal({ ...cal, refWidthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
-          <button onClick={() => save(cal)} className="rounded-md bg-slate-900 px-4 py-2 font-semibold text-white">Save size</button>
-          <div className="text-xs text-slate-500">A full slab of this size, pushed into the table stops, is the ruler for everything. Its corner in the stops is (0,0) — the top-left of the picture on the TV. Changing the size after calibrating means re-calibrating.</div>
+        <CardHeader><CardTitle className="text-base">1 · Table and calibration slab</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="text-sm font-bold">Table (projection area)</div>
+            <label className="text-sm font-semibold">Length (in)<input type="number" step="0.25" value={cal.refLengthIn} onChange={(e) => setCal({ ...cal, refLengthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
+            <label className="text-sm font-semibold">Width (in)<input type="number" step="0.25" value={cal.refWidthIn} onChange={(e) => setCal({ ...cal, refWidthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
+            <div className="text-sm font-bold md:ml-6">Calibration slab</div>
+            <label className="text-sm font-semibold">Length (in)<input type="number" step="0.25" value={cal.calSlabLengthIn ?? 108} onChange={(e) => setCal({ ...cal, calSlabLengthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
+            <label className="text-sm font-semibold">Width (in)<input type="number" step="0.25" value={cal.calSlabWidthIn ?? 84} onChange={(e) => setCal({ ...cal, calSlabWidthIn: Number(e.target.value) })} className="mt-1 block w-32 rounded-md border px-3 py-2 text-lg" /></label>
+            <button onClick={() => save(cal)} className="rounded-md bg-slate-900 px-4 py-2 font-semibold text-white">Save sizes</button>
+          </div>
+          <div className="text-xs text-slate-500">
+            The table is the area the projector and camera know; a slab can lie anywhere inside it, at any angle. Its corner in the stops is (0,0) — the top-left of the picture on the TV. The projected image must cover the whole area: a 16:9 projector has to throw an image at least {cal.refWidthIn}" tall, i.e. about {Math.round((cal.refWidthIn * 16) / 9)}" wide{cal.refLengthIn > (cal.refWidthIn * 16) / 9 ? ` (and ${cal.refLengthIn}" long)` : ''}. If it cannot, set the table size here to the part it does cover. Changing sizes after calibrating means re-calibrating.
+            The calibration slab is a real, square-cut slab you put in the stops to mark the thickness planes (the biggest slab you buy is best).
+          </div>
         </CardContent>
       </Card>
 
@@ -165,7 +190,11 @@ export default function ProjectionSetup() {
           ) : (
             <div className="rounded-lg border-2 border-amber-400 bg-amber-50 p-4">
               <div className="font-bold">Calibrating the {editThk === 0 ? 'table' : `${editThk}" slab`} plane</div>
-              <div className="text-sm text-slate-700">{editThk === 0 ? 'Mark the reference rectangle on the bare table (tape at the 4 corners), ' : `Put a ${editThk}" slab of ${cal.refLengthIn}×${cal.refWidthIn} in the stops, `}then move each crosshair onto its corner. You can also drag them with the mouse on the projector PC.</div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold">Marking:</span>
+                {(['table', 'slab'] as Mark[]).map((m) => <button key={m} onClick={() => startEdit(editThk, m)} className={`rounded-full px-3 py-1 font-semibold ${editMark === m ? 'bg-amber-500 text-white' : 'border bg-white'}`}>{m === 'table' ? `whole table ${cal.refLengthIn}×${cal.refWidthIn}` : `${slabL}×${slabW} slab in the stops`}</button>)}
+              </div>
+              <div className="mt-1 text-sm text-slate-700">{editThk === 0 && editMark === 'table' ? 'Tape marks at the four corners of the table area, ' : `Put a ${editThk ? `${editThk}" ` : ''}${editMark === 'table' ? `${cal.refLengthIn}×${cal.refWidthIn}` : `${slabL}×${slabW}`} ${editMark === 'table' ? 'rectangle' : 'slab'} in the stops, `}then move each crosshair onto its corner. You can also drag them with the mouse on the projector PC.{editMark === 'slab' ? ' The slab corners are extended to the table corners automatically.' : ''}</div>
               {!corners ? <div className="mt-3 text-sm text-slate-500">Waiting for the projector page to report its screen…</div> : (
                 <div className="mt-3 grid gap-4 md:grid-cols-[1fr_260px]">
                   <div>
@@ -181,7 +210,7 @@ export default function ProjectionSetup() {
                         <span /><button onClick={() => nudge(0, step)} className="h-14 w-14 rounded-lg bg-white text-2xl font-black shadow">↓</button><span />
                       </div>
                       <div className="flex flex-col gap-1">{[1, 5, 25].map((s) => <button key={s} onClick={() => setStep(s)} className={`rounded px-3 py-1 text-sm ${step === s ? 'bg-slate-900 text-white' : 'border bg-white'}`}>{s} px</button>)}</div>
-                      <div className="text-xs text-slate-500">Corner {active + 1}: {Math.round(corners[active][0])}, {Math.round(corners[active][1])} px on a {state?.calibrate?.screenW}×{state?.calibrate?.screenH} screen</div>
+                      <div className="text-xs text-slate-500">Corner {active + 1} of {markLabel(editMark)}: {Math.round(corners[active][0])}, {Math.round(corners[active][1])} px on a {state?.calibrate?.screenW}×{state?.calibrate?.screenH} screen</div>
                     </div>
                     <div className="mt-3 flex gap-2">
                       <button onClick={savePlane} className="rounded-lg bg-emerald-600 px-5 py-3 font-bold text-white">Save {editThk}" plane</button>
@@ -212,12 +241,16 @@ export default function ProjectionSetup() {
           {camThk === null ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
               <span className="font-semibold">Add / redo a plane:</span>
-              {thicknessChoices.map((t) => <button key={t} onClick={() => { setCamThk(t); setCamImg(null); setTaps([]); }} className="rounded-full border px-3 py-1.5 font-semibold hover:bg-slate-100">{t === 0 ? 'Table (0")' : `${t}" slab`}</button>)}
+              {thicknessChoices.map((t) => <button key={t} onClick={() => { setCamThk(t); setCamMark(t === 0 ? 'table' : 'slab'); setCamImg(null); setTaps([]); }} className="rounded-full border px-3 py-1.5 font-semibold hover:bg-slate-100">{t === 0 ? 'Table (0")' : `${t}" slab`}</button>)}
             </div>
           ) : (
             <div className="rounded-lg border-2 border-sky-400 bg-sky-50 p-4">
               <div className="font-bold">Camera plane for the {camThk === 0 ? 'table marks' : `${camThk}" slab`}</div>
-              <div className="text-sm text-slate-700">Same slab in the stops. Take a picture, then tap its four corners in order: 1 top-left (the corner in the stops), 2 top-right, 3 bottom-right, 4 bottom-left — matching the picture on the TV.</div>
+              <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold">Tapping:</span>
+                {(['table', 'slab'] as Mark[]).map((m) => <button key={m} onClick={() => { setCamMark(m); setTaps([]); }} className={`rounded-full px-3 py-1 font-semibold ${camMark === m ? 'bg-sky-500 text-white' : 'border bg-white'}`}>{m === 'table' ? `whole table ${cal.refLengthIn}×${cal.refWidthIn}` : `${slabL}×${slabW} slab in the stops`}</button>)}
+              </div>
+              <div className="mt-1 text-sm text-slate-700">Take a picture of {markLabel(camMark)}, then tap its four corners in order: 1 top-left (the corner in the stops), 2 top-right, 3 bottom-right, 4 bottom-left — matching the picture on the TV.{camMark === 'slab' ? ' The slab corners are extended to the table corners automatically.' : ''}</div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button onClick={snapStation} disabled={!!camBusy} className="rounded-lg bg-emerald-600 px-4 py-3 font-bold text-white disabled:opacity-40">📷 Station camera</button>
                 <label className="cursor-pointer rounded-lg border bg-white px-4 py-3 font-semibold">This device's camera<input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => e.target.files?.[0] && snapFile(e.target.files[0])} /></label>
@@ -268,7 +301,7 @@ export default function ProjectionSetup() {
         </CardContent>
       </Card>
 
-      {measure !== null && <MeasureSlab cal={cal} thicknessIn={measure} nominal={{ length: cal.refLengthIn, width: cal.refWidthIn }} grade={`${measure}" test`} onClose={() => setMeasure(null)} />}
+      {measure !== null && <MeasureSlab cal={cal} thicknessIn={measure} nominal={{ length: slabL, width: slabW }} grade={`${measure}" test`} onClose={() => setMeasure(null)} />}
     </div>
   );
 }

@@ -80,11 +80,11 @@ router.post('/:id/optimize', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-/** Re-nest one slab to its measured size (camera or tape). Body: { foamId, slabIndex, lengthIn, widthIn, poly?, x?, y? } */
+/** Re-nest one slab to the stock scanned on the table. Body: { foamId, slabIndex, lengthIn, widthIn, poly?, x?, y?, angleDeg?, fill? } */
 router.post('/:id/slabs/resize', async (req, res, next) => {
   try {
     const b = req.body ?? {};
-    res.json(await resizeSlab(+req.params.id, Number(b.foamId), Number(b.slabIndex), { lengthIn: Number(b.lengthIn), widthIn: Number(b.widthIn), poly: b.poly ?? null, x: Number(b.x) || 0, y: Number(b.y) || 0, angleDeg: Number(b.angleDeg) || 0 }));
+    res.json(await resizeSlab(+req.params.id, Number(b.foamId), Number(b.slabIndex), { lengthIn: Number(b.lengthIn), widthIn: Number(b.widthIn), poly: b.poly ?? null, x: Number(b.x) || 0, y: Number(b.y) || 0, angleDeg: Number(b.angleDeg) || 0, fill: !!b.fill }));
   } catch (err) { next(err); }
 });
 

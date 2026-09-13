@@ -20,8 +20,8 @@ model Foam {
   odooTemplateId   Int?                   @unique
   odooProductId    Int?
   thicknessIn      Float?                 // slab thickness parsed from the Odoo name (5" Foam → 5)
-  sheetLengthIn    Float                  @default(82) // stock slab size the cut optimizer packs onto
-  sheetWidthIn     Float                  @default(36)
+  sheetLengthIn    Float                  @default(108) // stock slab size the cut optimizer packs onto (we buy 108 × 84 slabs)
+  sheetWidthIn     Float                  @default(84)
   active           Boolean                @default(true)
   createdAt        DateTime               @default(now())
   updatedAt        DateTime               @updatedAt

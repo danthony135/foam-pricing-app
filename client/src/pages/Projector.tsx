@@ -61,10 +61,20 @@ export default function Projector() {
         const o = await api.getFoamOrder(st.orderId).catch(() => null);
         if (o && (!orderRef.current || orderRef.current.id !== o.id || orderRef.current.updatedAt !== o.updatedAt)) { orderRef.current = { id: o.id, updatedAt: o.updatedAt }; setOrder(o); }
       }
-      // In calibrate mode with no corners yet, seed them from this screen.
+      // In calibrate mode with no corners yet, seed them from this screen: the marked rectangle
+      // (table or calibration slab) through the saved planes if there are any, else fitted in the screen.
       if (st.mode === 'calibrate' && st.calibrate && !st.calibrate.corners && s.calibration) {
-        const c = fitCorners(s.calibration.refLengthIn, s.calibration.refWidthIn, window.innerWidth, window.innerHeight);
-        await api.setStationState({ calibrate: { ...st.calibrate, corners: c, screenW: window.innerWidth, screenH: window.innerHeight } });
+        const c0 = s.calibration as Calibration;
+        const mL = Number(st.calibrate.markL) || c0.refLengthIn, mW = Number(st.calibrate.markW) || c0.refWidthIn;
+        const sw = window.innerWidth, sh = window.innerHeight;
+        const known = cornersAt(c0.projector, Number(st.calibrate.thicknessIn) || 0);
+        let c: Pt[];
+        if (known && c0.projector?.screenW && c0.projector?.screenH) {
+          const kx = sw / c0.projector.screenW, ky = sh / c0.projector.screenH;
+          const h = solveHomography(refCorners(c0.refLengthIn, c0.refWidthIn), known.map(([x, y]) => [x * kx, y * ky] as Pt));
+          c = refCorners(mL, mW).map((p) => applyH(h, p));
+        } else c = fitCorners(mL, mW, sw, sh);
+        await api.setStationState({ calibrate: { ...st.calibrate, corners: c, screenW: sw, screenH: sh } });
       }
       if (st.mode !== 'calibrate') localCorners.current = null;
     } catch { /* keep last picture */ }
@@ -104,7 +114,9 @@ export default function Projector() {
   const state = station?.state ?? { mode: 'idle' };
   const cal = station?.calibration ?? null;
   const prefs = station?.prefs ?? { lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true };
-  const L = cal?.refLengthIn ?? 82, W = cal?.refWidthIn ?? 36;
+  const L = cal?.refLengthIn ?? 120, W = cal?.refWidthIn ?? 120;
+  // What the calibrate crosshairs mark (the table or the calibration slab in the stops).
+  const mL = Number(state.calibrate?.markL) || L, mW = Number(state.calibrate?.markW) || W;
 
   // Projector corners were saved for a screen size; scale if this window differs.
   const scaleCorners = useCallback((c: Pt[] | null, sw?: number, sh?: number): Pt[] | null => {
@@ -233,7 +245,7 @@ export default function Projector() {
                   <line x1={x} y1={y - 40} x2={x} y2={y + 40} stroke={c} strokeWidth={2} />
                   <circle cx={x} cy={y} r={14} fill="none" stroke={c} strokeWidth={2} />
                   <text x={x + 18} y={y - 18} fill={c} fontSize={26} fontWeight={800}>{i + 1}</text>
-                  <text x={x + 18} y={y + 34} fill="#aaa" fontSize={12}>{['top-left (0,0)', `top-right (${L},0)`, `bottom-right (${L},${W})`, `bottom-left (0,${W})`][i]}</text>
+                  <text x={x + 18} y={y + 34} fill="#aaa" fontSize={12}>{['top-left (0,0)', `top-right (${mL},0)`, `bottom-right (${mL},${mW})`, `bottom-left (0,${mW})`][i]}</text>
                 </g>
               );
             })}
@@ -248,7 +260,7 @@ export default function Projector() {
           <div>
             {state.mode === 'slab' && slab ? `${order?.name} · ${slab.grade} slab ${slab.sheet.index} · ${slab.length}×${slab.width}${slab.sheet.stock ? ' measured' : ''}${slab.angle ? ` · turned ${slab.angle > 0 ? '+' : ''}${slab.angle}°` : ''} · ${slab.sheet.pieces.length} pieces` : null}
             {state.mode === 'slab' && !slab ? 'Waiting for a slab from the cut station…' : null}
-            {state.mode === 'calibrate' ? `Calibrating plane ${state.calibrate?.thicknessIn ?? '?'}" — drag crosshairs or use arrow keys (Shift = 10 px); corner ${(state.calibrate?.active ?? 0) + 1} selected` : null}
+            {state.mode === 'calibrate' ? `Calibrating plane ${state.calibrate?.thicknessIn ?? '?'}" on a ${mL}×${mW} ${mL === L && mW === W ? 'table' : 'slab'} — drag crosshairs or use arrow keys (Shift = 10 px); corner ${(state.calibrate?.active ?? 0) + 1} selected` : null}
             {state.mode === 'grid' ? `6" grid at ${state.gridThickness ?? 0}" plane` : null}
             {state.mode === 'idle' ? 'Idle — controlled from the cut station / Projector & camera page' : null}
           </div>

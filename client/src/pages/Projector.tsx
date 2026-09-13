@@ -113,11 +113,14 @@ export default function Projector() {
 
   const state = station?.state ?? { mode: 'idle' };
   const cal = station?.calibration ?? null;
-  const prefs = station?.prefs ?? { lineMode: 'dark', cutLineWidth: 1, lineWidth: 3, color: '#00ff66', colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true };
-  // Black cut lines: a projector cannot throw black, so the slab is lit white (pieces tinted per order) and the
-  // cut lines are left unlit, as thin as the projector can draw so the line never adds to the piece size.
-  const dark = (prefs.lineMode ?? 'dark') !== 'light';
-  const cutW = Math.max(0.5, Number(prefs.cutLineWidth) || 1);
+  const prefs = station?.prefs ?? { lineMode: 'bright', cutLineIn: 0.125, color: '#00ff66', cutLineWidth: 1, lineWidth: 3, colorMode: 'mo', showLabels: true, labelSize: 22, showOutline: true };
+  // Cut lines. 'bright' (default): one bright colour on the unlit foam, drawn exactly `cutLineIn` inches wide on the
+  // table (px = inches × local projector scale, never under 1 px) so it is obvious but never adds to a piece.
+  // 'dark': the slab is lit white and the cut lines are left unlit (black) — the only way a projector shows black.
+  const dark = prefs.lineMode === 'dark';
+  const cutW = Math.max(0.5, Number(prefs.cutLineWidth) || 1); // dark mode, px
+  const cutIn = Number(prefs.cutLineIn) > 0 ? Number(prefs.cutLineIn) : 0.125; // bright mode, inches on the table
+  const cutColor = prefs.color || '#00ff66';
   const L = cal?.refLengthIn ?? 120, W = cal?.refWidthIn ?? 120;
   // What the calibrate crosshairs mark (the table or the calibration slab in the stops).
   const mL = Number(state.calibrate?.markL) || L, mW = Number(state.calibrate?.markW) || W;
@@ -204,7 +207,7 @@ export default function Projector() {
             {dark && <polygon points={pts(outline)} fill="#ffffff" stroke="none" />}
             {prefs.showOutline && (dark
               ? <polygon points={pts(outline)} fill="none" stroke="#000000" strokeWidth={cutW} strokeDasharray={`${cutW * 8} ${cutW * 5}`} />
-              : <polygon points={pts(outline)} fill="none" stroke="#ffffff" strokeWidth={lw * 0.7} strokeDasharray={`${lw * 4} ${lw * 3}`} opacity={0.8} />)}
+              : <polygon points={pts(outline)} fill="none" stroke="#ffffff" strokeWidth={Math.max(1, cutIn * localScale(H, centroid(outline)))} strokeDasharray="10 8" opacity={0.7} />)}
             {(slab.sheet.pieces as PlacedPiece[]).map((p, i) => {
               const poly = p.poly ?? rectPoly(p.x, p.y, p.w, p.h);
               const c = colorOf(p);
@@ -213,12 +216,13 @@ export default function Projector() {
               const scale = localScale(H, [cx, cy]);
               const fs = Math.max(10, Math.min(prefs.labelSize ?? 22, Math.min(p.w, p.h) * scale * 0.22));
               const mo = p.mo ? moLabel(p.mo) : null;
+              const wIn = Math.max(1, cutIn * scale); // the cut line, in px, at this piece
               return (
                 <g key={i}>
                   {dark
                     ? <polygon points={pts(poly)} fill={c} fillOpacity={0.28} stroke="#000000" strokeWidth={cutW} strokeLinejoin="miter" />
-                    : <polygon points={pts(poly)} fill={c} fillOpacity={0.06} stroke={c} strokeWidth={lw} strokeLinejoin="round" />}
-                  {p.glue && <line x1={P([p.glue.seam[0], p.glue.seam[1]])[0]} y1={P([p.glue.seam[0], p.glue.seam[1]])[1]} x2={P([p.glue.seam[2], p.glue.seam[3]])[0]} y2={P([p.glue.seam[2], p.glue.seam[3]])[1]} stroke="#ff3b30" strokeWidth={dark ? Math.max(cutW, 1.5) : lw * 1.3} strokeDasharray={dark ? '6 4' : `${lw * 3} ${lw * 2}`} />}
+                    : <polygon points={pts(poly)} fill={c} fillOpacity={0.08} stroke={cutColor} strokeWidth={wIn} strokeLinejoin="miter" />}
+                  {p.glue && <line x1={P([p.glue.seam[0], p.glue.seam[1]])[0]} y1={P([p.glue.seam[0], p.glue.seam[1]])[1]} x2={P([p.glue.seam[2], p.glue.seam[3]])[0]} y2={P([p.glue.seam[2], p.glue.seam[3]])[1]} stroke="#ff3b30" strokeWidth={dark ? Math.max(cutW, 1.5) : Math.max(2, wIn * 1.5)} strokeDasharray={dark ? '6 4' : '8 5'} />}
                   {prefs.showLabels && (
                     <g fontFamily="system-ui, sans-serif" textAnchor="middle" fill={dark ? '#000' : '#fff'}>
                       <text x={sx} y={sy - (mo ? fs * 0.35 : 0)} fontSize={fs} fontWeight={800}>{p.label.split(' ')[0]}</text>
